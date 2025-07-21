@@ -1,0 +1,2958 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>api: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">item-pdp-service/cmd/api/main.go (0.0%)</option>
+				
+				<option value="file1">item-pdp-service/internal/application/http/handlers/item_handler.go (32.5%)</option>
+				
+				<option value="file2">item-pdp-service/internal/application/http/middleware/cors.go (0.0%)</option>
+				
+				<option value="file3">item-pdp-service/internal/application/http/middleware/logging.go (0.0%)</option>
+				
+				<option value="file4">item-pdp-service/internal/application/http/middleware/validation.go (0.0%)</option>
+				
+				<option value="file5">item-pdp-service/internal/application/http/routes/routes.go (0.0%)</option>
+				
+				<option value="file6">item-pdp-service/internal/application/usecase/item_usecase.go (36.8%)</option>
+				
+				<option value="file7">item-pdp-service/internal/domain/item/entity.go (94.1%)</option>
+				
+				<option value="file8">item-pdp-service/internal/domain/item/errors.go (100.0%)</option>
+				
+				<option value="file9">item-pdp-service/internal/domain/item/events.go (0.0%)</option>
+				
+				<option value="file10">item-pdp-service/internal/domain/item/value_objects.go (96.5%)</option>
+				
+				<option value="file11">item-pdp-service/internal/infrastructure/config/config.go (0.0%)</option>
+				
+				<option value="file12">item-pdp-service/internal/infrastructure/database/connection.go (0.0%)</option>
+				
+				<option value="file13">item-pdp-service/internal/infrastructure/persistence/postgres_item_repository.go (57.6%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+        "time"
+
+        "item-pdp-service/internal/application/usecase"
+        "item-pdp-service/internal/infrastructure/config"
+        "item-pdp-service/internal/infrastructure/database"
+        "item-pdp-service/internal/infrastructure/persistence"
+        "item-pdp-service/internal/application/http/handlers"
+        "item-pdp-service/internal/application/http/routes"
+
+        "github.com/gin-gonic/gin"
+        "github.com/rs/zerolog"
+        "github.com/rs/zerolog/log"
+        "go.uber.org/fx"
+)
+
+func main() <span class="cov0" title="0">{
+        fx.New(
+                // Provide dependencies
+                fx.Provide(
+                        config.Load,
+                        setupLogger,
+                        database.NewConnection,
+                        persistence.NewPostgresItemRepository,
+                        usecase.NewItemUseCase,
+                        handlers.NewItemHandler,
+                        setupGinEngine,
+                        setupServer,
+                ),
+                // Invoke the server
+                fx.Invoke(runServer),
+        ).Run()
+}</span>
+
+// setupLogger configures the logger
+func setupLogger(cfg *config.Config) zerolog.Logger <span class="cov0" title="0">{
+        // Configure zerolog
+        zerolog.TimeFieldFormat = time.RFC3339
+
+        // Set log level
+        level, err := zerolog.ParseLevel(cfg.Log.Level)
+        if err != nil </span><span class="cov0" title="0">{
+                level = zerolog.InfoLevel
+        }</span>
+        <span class="cov0" title="0">zerolog.SetGlobalLevel(level)
+
+        // Configure output format
+        if cfg.Log.Format == "pretty" || cfg.IsDevelopment() </span><span class="cov0" title="0">{
+                log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+        }</span>
+
+        <span class="cov0" title="0">return log.Logger.With().
+                Str("service", cfg.App.Name).
+                Str("version", cfg.App.Version).
+                Str("environment", cfg.App.Environment).
+                Logger()</span>
+}
+
+// setupGinEngine configures the Gin engine
+func setupGinEngine(cfg *config.Config, itemHandler *handlers.ItemHandler) *gin.Engine <span class="cov0" title="0">{
+        // Set Gin mode
+        if cfg.IsProduction() </span><span class="cov0" title="0">{
+                gin.SetMode(gin.ReleaseMode)
+        }</span> else<span class="cov0" title="0"> {
+                gin.SetMode(gin.DebugMode)
+        }</span>
+
+        // Create router
+        <span class="cov0" title="0">router := gin.New()
+
+        // Setup middlewares
+        routes.SetupMiddlewares(router)
+
+        // Setup routes
+        routes.SetupRoutes(router, itemHandler)
+
+        return router</span>
+}
+
+// setupServer creates the HTTP server
+func setupServer(cfg *config.Config, router *gin.Engine) *http.Server <span class="cov0" title="0">{
+        return &amp;http.Server{
+                Addr:         cfg.GetServerAddress(),
+                Handler:      router,
+                ReadTimeout:  cfg.Server.ReadTimeout,
+                WriteTimeout: cfg.Server.WriteTimeout,
+                IdleTimeout:  cfg.Server.IdleTimeout,
+        }
+}</span>
+
+// runServer starts the HTTP server with graceful shutdown
+func runServer(lc fx.Lifecycle, cfg *config.Config, server *http.Server, db *database.DB) <span class="cov0" title="0">{
+        lc.Append(fx.Hook{
+                OnStart: func(ctx context.Context) error </span><span class="cov0" title="0">{
+                        log.Info().
+                                Str("address", cfg.GetServerAddress()).
+                                Msg("Starting HTTP server")
+
+                        go func() </span><span class="cov0" title="0">{
+                                if err := server.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                                        log.Fatal().Err(err).Msg("Failed to start server")
+                                }</span>
+                        }()
+
+                        <span class="cov0" title="0">return nil</span>
+                },
+                OnStop: func(ctx context.Context) error <span class="cov0" title="0">{
+                        log.Info().Msg("Shutting down server")
+
+                        // Create shutdown context with timeout
+                        shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+                        defer cancel()
+
+                        // Shutdown server gracefully
+                        if err := server.Shutdown(shutdownCtx); err != nil </span><span class="cov0" title="0">{
+                                log.Error().Err(err).Msg("Server forced to shutdown")
+                                return err
+                        }</span>
+
+                        // Close database connection
+                        <span class="cov0" title="0">if err := db.Close(); err != nil </span><span class="cov0" title="0">{
+                                log.Error().Err(err).Msg("Failed to close database connection")
+                                return err
+                        }</span>
+
+                        <span class="cov0" title="0">log.Info().Msg("Server stopped gracefully")
+                        return nil</span>
+                },
+        })
+
+        // Set up signal handling for graceful shutdown
+        <span class="cov0" title="0">c := make(chan os.Signal, 1)
+        signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+        go func() </span><span class="cov0" title="0">{
+                &lt;-c
+                log.Info().Msg("Received shutdown signal")
+                // The fx framework will handle the shutdown via OnStop hooks
+        }</span>()
+} </pre>
+		
+		<pre class="file" id="file1" style="display: none">package handlers
+
+import (
+        "net/http"
+        "strconv"
+
+        "item-pdp-service/internal/application/dto"
+        "item-pdp-service/internal/application/usecase"
+        "item-pdp-service/internal/application/http/middleware"
+
+        "github.com/gin-gonic/gin"
+        "github.com/rs/zerolog/log"
+)
+
+// ItemHandler handles HTTP requests for items
+type ItemHandler struct {
+        itemUseCase usecase.ItemUseCase
+}
+
+// NewItemHandler creates a new item handler
+func NewItemHandler(itemUseCase usecase.ItemUseCase) *ItemHandler <span class="cov10" title="5">{
+        return &amp;ItemHandler{
+                itemUseCase: itemUseCase,
+        }
+}</span>
+
+// CreateItem creates a new item
+// @Summary Create a new item
+// @Description Create a new item with the provided data
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param item body dto.CreateItemRequest true "Item data"
+// @Success 201 {object} dto.ItemResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items [post]
+func (h *ItemHandler) CreateItem(c *gin.Context) <span class="cov7" title="3">{
+        var req dto.CreateItemRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov1" title="1">{
+                log.Error().Err(err).Msg("Failed to bind JSON")
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Invalid request body",
+                })
+                return
+        }</span>
+
+        // Validate request
+        <span class="cov4" title="2">if !middleware.ValidateAndRespond(c, req) </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov4" title="2">item, err := h.itemUseCase.CreateItem(c.Request.Context(), &amp;req)
+        if err != nil </span><span class="cov1" title="1">{
+                log.Error().Err(err).Msg("Failed to create item")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to create item",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusCreated, item)</span>
+}
+
+// GetItem retrieves an item by ID
+// @Summary Get item by ID
+// @Description Get an item by its ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Success 200 {object} dto.ItemResponse
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id} [get]
+func (h *ItemHandler) GetItem(c *gin.Context) <span class="cov7" title="3">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov1" title="1">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov4" title="2">item, err := h.itemUseCase.GetItemByID(c.Request.Context(), id)
+        if err != nil </span><span class="cov1" title="1">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to get item")
+                c.JSON(http.StatusNotFound, middleware.ErrorResponse{
+                        Error: "Item not found",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, item)</span>
+}
+
+// GetItemBySKU retrieves an item by SKU
+// @Summary Get item by SKU
+// @Description Get an item by its SKU
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param sku path string true "Item SKU"
+// @Success 200 {object} dto.ItemResponse
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/sku/{sku} [get]
+func (h *ItemHandler) GetItemBySKU(c *gin.Context) <span class="cov0" title="0">{
+        sku := c.Param("sku")
+        if sku == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "SKU is required",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">item, err := h.itemUseCase.GetItemBySKU(c.Request.Context(), sku)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("sku", sku).Msg("Failed to get item by SKU")
+                c.JSON(http.StatusNotFound, middleware.ErrorResponse{
+                        Error: "Item not found",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, item)</span>
+}
+
+// UpdateItem updates an existing item
+// @Summary Update an item
+// @Description Update an existing item with the provided data
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Param item body dto.UpdateItemRequest true "Updated item data"
+// @Success 200 {object} dto.ItemResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id} [put]
+func (h *ItemHandler) UpdateItem(c *gin.Context) <span class="cov0" title="0">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">var req dto.UpdateItemRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Msg("Failed to bind JSON")
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Invalid request body",
+                })
+                return
+        }</span>
+
+        // Validate request
+        <span class="cov0" title="0">if !middleware.ValidateAndRespond(c, req) </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov0" title="0">item, err := h.itemUseCase.UpdateItem(c.Request.Context(), id, &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to update item")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to update item",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, item)</span>
+}
+
+// UpdateInventory updates item inventory
+// @Summary Update item inventory
+// @Description Update the inventory quantity of an item
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Param inventory body dto.UpdateInventoryRequest true "Inventory data"
+// @Success 200 {object} dto.ItemResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id}/inventory [patch]
+func (h *ItemHandler) UpdateInventory(c *gin.Context) <span class="cov1" title="1">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">var req dto.UpdateInventoryRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Msg("Failed to bind JSON")
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Invalid request body",
+                })
+                return
+        }</span>
+
+        // Validate request
+        <span class="cov1" title="1">if !middleware.ValidateAndRespond(c, req) </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov1" title="1">item, err := h.itemUseCase.UpdateInventory(c.Request.Context(), id, &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to update inventory")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to update inventory",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, item)</span>
+}
+
+// AddImage adds an image to an item
+// @Summary Add image to item
+// @Description Add an image to an existing item
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Param image body dto.AddImageRequest true "Image data"
+// @Success 200 {object} dto.ItemResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id}/images [post]
+func (h *ItemHandler) AddImage(c *gin.Context) <span class="cov0" title="0">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">var req dto.AddImageRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Msg("Failed to bind JSON")
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Invalid request body",
+                })
+                return
+        }</span>
+
+        // Validate request
+        <span class="cov0" title="0">if !middleware.ValidateAndRespond(c, req) </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov0" title="0">item, err := h.itemUseCase.AddImage(c.Request.Context(), id, &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to add image")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to add image",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, item)</span>
+}
+
+// DeleteItem deletes an item
+// @Summary Delete an item
+// @Description Delete an item by its ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Success 204
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id} [delete]
+func (h *ItemHandler) DeleteItem(c *gin.Context) <span class="cov4" title="2">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov4" title="2">err := h.itemUseCase.DeleteItem(c.Request.Context(), id)
+        if err != nil </span><span class="cov1" title="1">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to delete item")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to delete item",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusNoContent, nil)</span>
+}
+
+// DeactivateItem deactivates an item
+// @Summary Deactivate an item
+// @Description Deactivate an item by its ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Success 204
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id}/deactivate [patch]
+func (h *ItemHandler) DeactivateItem(c *gin.Context) <span class="cov0" title="0">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">err := h.itemUseCase.DeactivateItem(c.Request.Context(), id)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to deactivate item")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to deactivate item",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.Status(http.StatusNoContent)</span>
+}
+
+// ActivateItem activates an item
+// @Summary Activate an item
+// @Description Activate an item by its ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Success 204
+// @Failure 404 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/{id}/activate [patch]
+func (h *ItemHandler) ActivateItem(c *gin.Context) <span class="cov0" title="0">{
+        id := c.Param("id")
+        if id == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Item ID is required",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">err := h.itemUseCase.ActivateItem(c.Request.Context(), id)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("item_id", id).Msg("Failed to activate item")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to activate item",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.Status(http.StatusNoContent)</span>
+}
+
+// SearchItems searches for items
+// @Summary Search items
+// @Description Search for items based on query parameters
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param query query string false "Search query"
+// @Param category query string false "Category filter"
+// @Param status query string false "Status filter"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Success 200 {object} dto.ItemListResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/search [get]
+func (h *ItemHandler) SearchItems(c *gin.Context) <span class="cov4" title="2">{
+        var req dto.SearchRequest
+
+        // Parse query parameters
+        req.Query = c.Query("query")
+        req.Category = c.Query("category")
+        req.Status = c.Query("status")
+
+        // Parse page
+        pageStr := c.DefaultQuery("page", "1")
+        page, err := strconv.Atoi(pageStr)
+        if err != nil || page &lt; 1 </span><span class="cov0" title="0">{
+                page = 1
+        }</span>
+        <span class="cov4" title="2">req.Page = page
+
+        // Parse page size
+        pageSizeStr := c.DefaultQuery("page_size", "10")
+        pageSize, err := strconv.Atoi(pageSizeStr)
+        if err != nil || pageSize &lt; 1 || pageSize &gt; 100 </span><span class="cov0" title="0">{
+                pageSize = 10
+        }</span>
+        <span class="cov4" title="2">req.PageSize = pageSize
+
+        // Validate request
+        if !middleware.ValidateAndRespond(c, req) </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov4" title="2">items, err := h.itemUseCase.SearchItems(c.Request.Context(), &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Msg("Failed to search items")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to search items",
+                })
+                return
+        }</span>
+
+        <span class="cov4" title="2">c.JSON(http.StatusOK, items)</span>
+}
+
+// GetItemsByCategory retrieves items by category
+// @Summary Get items by category
+// @Description Get items filtered by category
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param category path string true "Category name"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Success 200 {object} dto.ItemListResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/category/{category} [get]
+func (h *ItemHandler) GetItemsByCategory(c *gin.Context) <span class="cov0" title="0">{
+        category := c.Param("category")
+        if category == "" </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, middleware.ErrorResponse{
+                        Error: "Category is required",
+                })
+                return
+        }</span>
+
+        // Parse page
+        <span class="cov0" title="0">pageStr := c.DefaultQuery("page", "1")
+        page, err := strconv.Atoi(pageStr)
+        if err != nil || page &lt; 1 </span><span class="cov0" title="0">{
+                page = 1
+        }</span>
+
+        // Parse page size
+        <span class="cov0" title="0">pageSizeStr := c.DefaultQuery("page_size", "10")
+        pageSize, err := strconv.Atoi(pageSizeStr)
+        if err != nil || pageSize &lt; 1 || pageSize &gt; 100 </span><span class="cov0" title="0">{
+                pageSize = 10
+        }</span>
+
+        <span class="cov0" title="0">items, err := h.itemUseCase.GetItemsByCategory(c.Request.Context(), category, page, pageSize)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Str("category", category).Msg("Failed to get items by category")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to get items by category",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, items)</span>
+}
+
+// GetAvailableItems retrieves available items
+// @Summary Get available items
+// @Description Get items that are active and in stock
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Success 200 {object} dto.ItemListResponse
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 500 {object} middleware.ErrorResponse
+// @Router /items/available [get]
+func (h *ItemHandler) GetAvailableItems(c *gin.Context) <span class="cov0" title="0">{
+        // Parse page
+        pageStr := c.DefaultQuery("page", "1")
+        page, err := strconv.Atoi(pageStr)
+        if err != nil || page &lt; 1 </span><span class="cov0" title="0">{
+                page = 1
+        }</span>
+
+        // Parse page size
+        <span class="cov0" title="0">pageSizeStr := c.DefaultQuery("page_size", "10")
+        pageSize, err := strconv.Atoi(pageSizeStr)
+        if err != nil || pageSize &lt; 1 || pageSize &gt; 100 </span><span class="cov0" title="0">{
+                pageSize = 10
+        }</span>
+
+        <span class="cov0" title="0">items, err := h.itemUseCase.GetAvailableItems(c.Request.Context(), page, pageSize)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Error().Err(err).Msg("Failed to get available items")
+                c.JSON(http.StatusInternalServerError, middleware.ErrorResponse{
+                        Error: "Failed to get available items",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">c.JSON(http.StatusOK, items)</span>
+} </pre>
+		
+		<pre class="file" id="file2" style="display: none">package middleware
+
+import (
+        "github.com/gin-gonic/gin"
+)
+
+// CORSConfig holds CORS configuration
+type CORSConfig struct {
+        AllowedOrigins   []string
+        AllowedMethods   []string
+        AllowedHeaders   []string
+        ExposedHeaders   []string
+        AllowCredentials bool
+        MaxAge           int
+}
+
+// DefaultCORSConfig returns default CORS configuration
+func DefaultCORSConfig() CORSConfig <span class="cov0" title="0">{
+        return CORSConfig{
+                AllowedOrigins: []string{"*"},
+                AllowedMethods: []string{
+                        "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS",
+                },
+                AllowedHeaders: []string{
+                        "Origin", "Content-Length", "Content-Type", "Authorization",
+                        "X-Requested-With", "Accept", "Cache-Control",
+                },
+                ExposedHeaders:   []string{},
+                AllowCredentials: false,
+                MaxAge:           12 * 60 * 60, // 12 hours
+        }
+}</span>
+
+// CORSMiddleware creates CORS middleware with given configuration
+func CORSMiddleware(config CORSConfig) gin.HandlerFunc <span class="cov0" title="0">{
+        return func(c *gin.Context) </span><span class="cov0" title="0">{
+                origin := c.Request.Header.Get("Origin")
+
+                // Set Access-Control-Allow-Origin
+                if len(config.AllowedOrigins) == 1 &amp;&amp; config.AllowedOrigins[0] == "*" </span><span class="cov0" title="0">{
+                        c.Header("Access-Control-Allow-Origin", "*")
+                }</span> else<span class="cov0" title="0"> {
+                        for _, allowedOrigin := range config.AllowedOrigins </span><span class="cov0" title="0">{
+                                if origin == allowedOrigin </span><span class="cov0" title="0">{
+                                        c.Header("Access-Control-Allow-Origin", origin)
+                                        break</span>
+                                }
+                        }
+                }
+
+                // Set Access-Control-Allow-Methods
+                <span class="cov0" title="0">if len(config.AllowedMethods) &gt; 0 </span><span class="cov0" title="0">{
+                        methods := ""
+                        for i, method := range config.AllowedMethods </span><span class="cov0" title="0">{
+                                if i &gt; 0 </span><span class="cov0" title="0">{
+                                        methods += ", "
+                                }</span>
+                                <span class="cov0" title="0">methods += method</span>
+                        }
+                        <span class="cov0" title="0">c.Header("Access-Control-Allow-Methods", methods)</span>
+                }
+
+                // Set Access-Control-Allow-Headers
+                <span class="cov0" title="0">if len(config.AllowedHeaders) &gt; 0 </span><span class="cov0" title="0">{
+                        headers := ""
+                        for i, header := range config.AllowedHeaders </span><span class="cov0" title="0">{
+                                if i &gt; 0 </span><span class="cov0" title="0">{
+                                        headers += ", "
+                                }</span>
+                                <span class="cov0" title="0">headers += header</span>
+                        }
+                        <span class="cov0" title="0">c.Header("Access-Control-Allow-Headers", headers)</span>
+                }
+
+                // Set Access-Control-Expose-Headers
+                <span class="cov0" title="0">if len(config.ExposedHeaders) &gt; 0 </span><span class="cov0" title="0">{
+                        headers := ""
+                        for i, header := range config.ExposedHeaders </span><span class="cov0" title="0">{
+                                if i &gt; 0 </span><span class="cov0" title="0">{
+                                        headers += ", "
+                                }</span>
+                                <span class="cov0" title="0">headers += header</span>
+                        }
+                        <span class="cov0" title="0">c.Header("Access-Control-Expose-Headers", headers)</span>
+                }
+
+                // Set Access-Control-Allow-Credentials
+                <span class="cov0" title="0">if config.AllowCredentials </span><span class="cov0" title="0">{
+                        c.Header("Access-Control-Allow-Credentials", "true")
+                }</span>
+
+                // Set Access-Control-Max-Age
+                <span class="cov0" title="0">if config.MaxAge &gt; 0 </span><span class="cov0" title="0">{
+                        c.Header("Access-Control-Max-Age", string(rune(config.MaxAge)))
+                }</span>
+
+                // Handle preflight requests
+                <span class="cov0" title="0">if c.Request.Method == "OPTIONS" </span><span class="cov0" title="0">{
+                        c.AbortWithStatus(204)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">c.Next()</span>
+        }
+} </pre>
+		
+		<pre class="file" id="file3" style="display: none">package middleware
+
+import (
+        "time"
+
+        "github.com/gin-gonic/gin"
+        "github.com/rs/zerolog"
+        "github.com/rs/zerolog/log"
+)
+
+// LoggingMiddleware creates a logging middleware
+func LoggingMiddleware() gin.HandlerFunc <span class="cov0" title="0">{
+        return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string </span><span class="cov0" title="0">{
+                log.Info().
+                        Str("method", param.Method).
+                        Str("path", param.Path).
+                        Int("status", param.StatusCode).
+                        Dur("latency", param.Latency).
+                        Str("client_ip", param.ClientIP).
+                        Str("user_agent", param.Request.UserAgent()).
+                        Int("body_size", param.BodySize).
+                        Msg("HTTP Request")
+                return ""
+        }</span>)
+}
+
+// StructuredLoggingMiddleware provides structured logging using zerolog
+func StructuredLoggingMiddleware(logger zerolog.Logger) gin.HandlerFunc <span class="cov0" title="0">{
+        return func(c *gin.Context) </span><span class="cov0" title="0">{
+                start := time.Now()
+                path := c.Request.URL.Path
+                raw := c.Request.URL.RawQuery
+
+                // Process request
+                c.Next()
+
+                // Calculate latency
+                latency := time.Since(start)
+
+                // Get client IP
+                clientIP := c.ClientIP()
+
+                // Get status code
+                statusCode := c.Writer.Status()
+
+                // Get body size
+                bodySize := c.Writer.Size()
+
+                // Get user agent
+                userAgent := c.Request.UserAgent()
+
+                // Build log entry
+                logEvent := logger.Info()
+
+                if len(c.Errors) &gt; 0 </span><span class="cov0" title="0">{
+                        logEvent = logger.Error().Strs("errors", c.Errors.Errors())
+                }</span>
+
+                <span class="cov0" title="0">if raw != "" </span><span class="cov0" title="0">{
+                        path = path + "?" + raw
+                }</span>
+
+                <span class="cov0" title="0">logEvent.
+                        Str("method", c.Request.Method).
+                        Str("path", path).
+                        Int("status", statusCode).
+                        Dur("latency", latency).
+                        Str("client_ip", clientIP).
+                        Str("user_agent", userAgent).
+                        Int("body_size", bodySize).
+                        Msg("HTTP Request")</span>
+        }
+} </pre>
+		
+		<pre class="file" id="file4" style="display: none">package middleware
+
+import (
+        "net/http"
+        "strings"
+
+        "github.com/gin-gonic/gin"
+        "github.com/go-playground/validator/v10"
+)
+
+// ValidationError represents a validation error response
+type ValidationError struct {
+        Field   string `json:"field"`
+        Message string `json:"message"`
+        Value   interface{} `json:"value,omitempty"`
+}
+
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+        Error  string            `json:"error"`
+        Errors []ValidationError `json:"errors,omitempty"`
+}
+
+// validator instance
+var validate *validator.Validate
+
+func init() <span class="cov0" title="0">{
+        validate = validator.New()
+}</span>
+
+// ValidateJSON validates the JSON body against a struct
+func ValidateJSON(obj interface{}) gin.HandlerFunc <span class="cov0" title="0">{
+        return func(c *gin.Context) </span><span class="cov0" title="0">{
+                if err := c.ShouldBindJSON(obj); err != nil </span><span class="cov0" title="0">{
+                        var validationErrors []ValidationError
+
+                        if validationErrs, ok := err.(validator.ValidationErrors); ok </span><span class="cov0" title="0">{
+                                for _, fieldErr := range validationErrs </span><span class="cov0" title="0">{
+                                        validationErrors = append(validationErrors, ValidationError{
+                                                Field:   getFieldName(fieldErr.Field()),
+                                                Message: getValidationMessage(fieldErr),
+                                                Value:   fieldErr.Value(),
+                                        })
+                                }</span>
+                        }
+
+                        <span class="cov0" title="0">c.JSON(http.StatusBadRequest, ErrorResponse{
+                                Error:  "Validation failed",
+                                Errors: validationErrors,
+                        })
+                        c.Abort()
+                        return</span>
+                }
+
+                <span class="cov0" title="0">c.Next()</span>
+        }
+}
+
+// ValidateStruct validates a struct using the validator
+func ValidateStruct(s interface{}) []ValidationError <span class="cov0" title="0">{
+        var validationErrors []ValidationError
+
+        if err := validate.Struct(s); err != nil </span><span class="cov0" title="0">{
+                if validationErrs, ok := err.(validator.ValidationErrors); ok </span><span class="cov0" title="0">{
+                        for _, fieldErr := range validationErrs </span><span class="cov0" title="0">{
+                                validationErrors = append(validationErrors, ValidationError{
+                                        Field:   getFieldName(fieldErr.Field()),
+                                        Message: getValidationMessage(fieldErr),
+                                        Value:   fieldErr.Value(),
+                                })
+                        }</span>
+                }
+        }
+
+        <span class="cov0" title="0">return validationErrors</span>
+}
+
+// ValidateAndRespond validates a struct and responds with errors if any
+func ValidateAndRespond(c *gin.Context, s interface{}) bool <span class="cov0" title="0">{
+        if errors := ValidateStruct(s); len(errors) &gt; 0 </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, ErrorResponse{
+                        Error:  "Validation failed",
+                        Errors: errors,
+                })
+                return false
+        }</span>
+        <span class="cov0" title="0">return true</span>
+}
+
+// getFieldName converts field name to snake_case
+func getFieldName(field string) string <span class="cov0" title="0">{
+        var result strings.Builder
+        for i, r := range field </span><span class="cov0" title="0">{
+                if i &gt; 0 &amp;&amp; r &gt;= 'A' &amp;&amp; r &lt;= 'Z' </span><span class="cov0" title="0">{
+                        result.WriteRune('_')
+                }</span>
+                <span class="cov0" title="0">result.WriteRune(r)</span>
+        }
+        <span class="cov0" title="0">return strings.ToLower(result.String())</span>
+}
+
+// getValidationMessage returns a human-readable validation message
+func getValidationMessage(fe validator.FieldError) string <span class="cov0" title="0">{
+        switch fe.Tag() </span>{
+        case "required":<span class="cov0" title="0">
+                return "This field is required"</span>
+        case "email":<span class="cov0" title="0">
+                return "Must be a valid email address"</span>
+        case "min":<span class="cov0" title="0">
+                return "Must be at least " + fe.Param() + " characters long"</span>
+        case "max":<span class="cov0" title="0">
+                return "Must be at most " + fe.Param() + " characters long"</span>
+        case "len":<span class="cov0" title="0">
+                return "Must be exactly " + fe.Param() + " characters long"</span>
+        case "url":<span class="cov0" title="0">
+                return "Must be a valid URL"</span>
+        case "gte":<span class="cov0" title="0">
+                return "Must be greater than or equal to " + fe.Param()</span>
+        case "lte":<span class="cov0" title="0">
+                return "Must be less than or equal to " + fe.Param()</span>
+        case "gt":<span class="cov0" title="0">
+                return "Must be greater than " + fe.Param()</span>
+        case "lt":<span class="cov0" title="0">
+                return "Must be less than " + fe.Param()</span>
+        case "oneof":<span class="cov0" title="0">
+                return "Must be one of: " + fe.Param()</span>
+        default:<span class="cov0" title="0">
+                return "Invalid value"</span>
+        }
+} </pre>
+		
+		<pre class="file" id="file5" style="display: none">package routes
+
+import (
+        "item-pdp-service/internal/application/http/handlers"
+        "item-pdp-service/internal/application/http/middleware"
+
+        "github.com/gin-gonic/gin"
+)
+
+// SetupRoutes configures all API routes
+func SetupRoutes(
+        router *gin.Engine,
+        itemHandler *handlers.ItemHandler,
+) <span class="cov0" title="0">{
+        // Health check endpoint
+        router.GET("/health", func(c *gin.Context) </span><span class="cov0" title="0">{
+                c.JSON(200, gin.H{
+                        "status":  "healthy",
+                        "service": "item-pdp-service",
+                })
+        }</span>)
+
+        // API v1 routes
+        <span class="cov0" title="0">v1 := router.Group("/api/v1")
+        </span><span class="cov0" title="0">{
+                setupItemRoutes(v1, itemHandler)
+        }</span>
+}
+
+// setupItemRoutes configures item-related routes
+func setupItemRoutes(rg *gin.RouterGroup, itemHandler *handlers.ItemHandler) <span class="cov0" title="0">{
+        items := rg.Group("/items")
+        </span><span class="cov0" title="0">{
+                // Basic CRUD operations
+                items.POST("", itemHandler.CreateItem)
+                items.GET("/:id", itemHandler.GetItem)
+                items.PUT("/:id", itemHandler.UpdateItem)
+                items.DELETE("/:id", itemHandler.DeleteItem)
+
+                // SKU-based operations
+                items.GET("/sku/:sku", itemHandler.GetItemBySKU)
+
+                // Inventory management
+                items.PATCH("/:id/inventory", itemHandler.UpdateInventory)
+
+                // Image management
+                items.POST("/:id/images", itemHandler.AddImage)
+
+                // Status management
+                items.PATCH("/:id/activate", itemHandler.ActivateItem)
+                items.PATCH("/:id/deactivate", itemHandler.DeactivateItem)
+
+                // Search and filtering
+                items.GET("/search", itemHandler.SearchItems)
+                items.GET("/category/:category", itemHandler.GetItemsByCategory)
+                items.GET("/available", itemHandler.GetAvailableItems)
+        }</span>
+}
+
+// SetupMiddlewares configures all middlewares
+func SetupMiddlewares(router *gin.Engine) <span class="cov0" title="0">{
+        // Recovery middleware
+        router.Use(gin.Recovery())
+
+        // CORS middleware
+        router.Use(middleware.CORSMiddleware(middleware.DefaultCORSConfig()))
+
+        // Logging middleware
+        router.Use(middleware.LoggingMiddleware())
+}</span> </pre>
+		
+		<pre class="file" id="file6" style="display: none">package usecase
+
+import (
+        "context"
+        "fmt"
+
+        "item-pdp-service/internal/application/dto"
+        "item-pdp-service/internal/domain/item"
+)
+
+// ItemUseCase defines the interface for item use cases
+type ItemUseCase interface {
+        CreateItem(ctx context.Context, req *dto.CreateItemRequest) (*dto.ItemResponse, error)
+        GetItemByID(ctx context.Context, id string) (*dto.ItemResponse, error)
+        GetItemBySKU(ctx context.Context, sku string) (*dto.ItemResponse, error)
+        UpdateItem(ctx context.Context, id string, req *dto.UpdateItemRequest) (*dto.ItemResponse, error)
+        UpdateInventory(ctx context.Context, id string, req *dto.UpdateInventoryRequest) (*dto.ItemResponse, error)
+        AddImage(ctx context.Context, id string, req *dto.AddImageRequest) (*dto.ItemResponse, error)
+        DeactivateItem(ctx context.Context, id string) error
+        ActivateItem(ctx context.Context, id string) error
+        DeleteItem(ctx context.Context, id string) error
+        SearchItems(ctx context.Context, req *dto.SearchRequest) (*dto.ItemListResponse, error)
+        GetItemsByCategory(ctx context.Context, category string, page, pageSize int) (*dto.ItemListResponse, error)
+        GetAvailableItems(ctx context.Context, page, pageSize int) (*dto.ItemListResponse, error)
+}
+
+// itemUseCase implements ItemUseCase
+type itemUseCase struct {
+        itemRepo item.Repository
+}
+
+// NewItemUseCase creates a new item use case
+func NewItemUseCase(itemRepo item.Repository) ItemUseCase <span class="cov10" title="5">{
+        return &amp;itemUseCase{
+                itemRepo: itemRepo,
+        }
+}</span>
+
+// CreateItem creates a new item
+func (u *itemUseCase) CreateItem(ctx context.Context, req *dto.CreateItemRequest) (*dto.ItemResponse, error) <span class="cov7" title="3">{
+        // Check if SKU already exists
+        sku, err := item.NewSKU(req.SKU)
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("invalid SKU: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">exists, err := u.itemRepo.ExistsBySKU(ctx, sku)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to check SKU existence: %w", err)
+        }</span>
+        <span class="cov4" title="2">if exists </span><span class="cov1" title="1">{
+                return nil, item.DuplicateSKUError(sku)
+        }</span>
+
+        // Create value objects
+        <span class="cov1" title="1">price, err := item.NewPrice(req.Price, req.Currency)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid price: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">category, err := item.NewCategory(req.Category)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid category: %w", err)
+        }</span>
+
+        // Create item entity
+        <span class="cov1" title="1">newItem, err := item.NewItem(sku, req.Name, req.Description, price, category)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create item: %w", err)
+        }</span>
+
+        // Update inventory if provided
+        <span class="cov1" title="1">if req.Inventory &gt; 0 </span><span class="cov1" title="1">{
+                if err := newItem.UpdateInventory(req.Inventory); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to set inventory: %w", err)
+                }</span>
+        }
+
+        // Set attributes if provided
+        <span class="cov1" title="1">if req.Attributes != nil </span><span class="cov1" title="1">{
+                for key, value := range req.Attributes </span><span class="cov1" title="1">{
+                        if err := newItem.SetAttribute(key, value); err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to set attribute %s: %w", key, err)
+                        }</span>
+                }
+        }
+
+        // Save to repository
+        <span class="cov1" title="1">if err := u.itemRepo.Save(ctx, newItem); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to save item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return u.mapItemToResponse(newItem), nil</span>
+}
+
+// GetItemByID retrieves an item by ID
+func (u *itemUseCase) GetItemByID(ctx context.Context, id string) (*dto.ItemResponse, error) <span class="cov7" title="3">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">foundItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return u.mapItemToResponse(foundItem), nil</span>
+}
+
+// GetItemBySKU retrieves an item by SKU
+func (u *itemUseCase) GetItemBySKU(ctx context.Context, skuStr string) (*dto.ItemResponse, error) <span class="cov0" title="0">{
+        sku, err := item.NewSKU(skuStr)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid SKU: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">foundItem, err := u.itemRepo.FindBySKU(ctx, sku)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return u.mapItemToResponse(foundItem), nil</span>
+}
+
+// UpdateItem updates an existing item
+func (u *itemUseCase) UpdateItem(ctx context.Context, id string, req *dto.UpdateItemRequest) (*dto.ItemResponse, error) <span class="cov0" title="0">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        // Update price if provided
+        <span class="cov0" title="0">if req.Price != nil </span><span class="cov0" title="0">{
+                currency := existingItem.Price().Currency()
+                if req.Currency != nil </span><span class="cov0" title="0">{
+                        currency = *req.Currency
+                }</span>
+                
+                <span class="cov0" title="0">newPrice, err := item.NewPrice(*req.Price, currency)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid price: %w", err)
+                }</span>
+                
+                <span class="cov0" title="0">if err := existingItem.UpdatePrice(newPrice); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to update price: %w", err)
+                }</span>
+        }
+
+        // Update attributes if provided
+        <span class="cov0" title="0">if req.Attributes != nil </span><span class="cov0" title="0">{
+                for key, value := range req.Attributes </span><span class="cov0" title="0">{
+                        if err := existingItem.SetAttribute(key, value); err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("failed to set attribute %s: %w", key, err)
+                        }</span>
+                }
+        }
+
+        // Save updated item
+        <span class="cov0" title="0">if err := u.itemRepo.Update(ctx, existingItem); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to update item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return u.mapItemToResponse(existingItem), nil</span>
+}
+
+// UpdateInventory updates item inventory
+func (u *itemUseCase) UpdateInventory(ctx context.Context, id string, req *dto.UpdateInventoryRequest) (*dto.ItemResponse, error) <span class="cov4" title="2">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">existingItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if err := existingItem.UpdateInventory(req.Quantity); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to update inventory: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if err := u.itemRepo.Update(ctx, existingItem); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to save item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return u.mapItemToResponse(existingItem), nil</span>
+}
+
+// AddImage adds an image to an item
+func (u *itemUseCase) AddImage(ctx context.Context, id string, req *dto.AddImageRequest) (*dto.ItemResponse, error) <span class="cov0" title="0">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">image, err := item.NewImage(req.URL, req.Alt, req.IsPrimary)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid image: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := existingItem.AddImage(image); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to add image: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := u.itemRepo.Update(ctx, existingItem); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to save item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return u.mapItemToResponse(existingItem), nil</span>
+}
+
+// DeactivateItem deactivates an item
+func (u *itemUseCase) DeactivateItem(ctx context.Context, id string) error <span class="cov0" title="0">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem.Deactivate()
+
+        if err := u.itemRepo.Update(ctx, existingItem); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// ActivateItem activates an item
+func (u *itemUseCase) ActivateItem(ctx context.Context, id string) error <span class="cov0" title="0">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem, err := u.itemRepo.FindByID(ctx, itemID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to find item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">existingItem.Activate()
+
+        if err := u.itemRepo.Update(ctx, existingItem); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update item: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// DeleteItem deletes an item
+func (u *itemUseCase) DeleteItem(ctx context.Context, id string) error <span class="cov4" title="2">{
+        itemID, err := item.NewItemIDFromString(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">if err := u.itemRepo.Delete(ctx, itemID); err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("failed to delete item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// SearchItems searches for items based on criteria
+func (u *itemUseCase) SearchItems(ctx context.Context, req *dto.SearchRequest) (*dto.ItemListResponse, error) <span class="cov7" title="3">{
+        offset := (req.Page - 1) * req.PageSize
+        
+        var items []*item.Item
+        var err error
+
+        if req.Query != "" </span><span class="cov4" title="2">{
+                items, err = u.itemRepo.Search(ctx, req.Query, req.PageSize, offset)
+        }</span> else<span class="cov1" title="1"> if req.Category != "" </span><span class="cov1" title="1">{
+                category, categoryErr := item.NewCategory(req.Category)
+                if categoryErr != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid category: %w", categoryErr)
+                }</span>
+                <span class="cov1" title="1">items, err = u.itemRepo.FindByCategory(ctx, category, req.PageSize, offset)</span>
+        } else<span class="cov0" title="0"> if req.Status != "" </span><span class="cov0" title="0">{
+                status, statusErr := item.StatusFromString(req.Status)
+                if statusErr != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid status: %w", statusErr)
+                }</span>
+                <span class="cov0" title="0">items, err = u.itemRepo.FindByStatus(ctx, status, req.PageSize, offset)</span>
+        } else<span class="cov0" title="0"> {
+                items, err = u.itemRepo.FindAvailableItems(ctx, req.PageSize, offset)
+        }</span>
+
+        <span class="cov7" title="3">if err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("failed to search items: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">responses := make([]dto.ItemResponse, len(items))
+        for i, itm := range items </span><span class="cov4" title="2">{
+                responses[i] = *u.mapItemToResponse(itm)
+        }</span>
+
+        <span class="cov4" title="2">totalPages := (len(responses) + req.PageSize - 1) / req.PageSize
+
+        return &amp;dto.ItemListResponse{
+                Items:      responses,
+                Total:      len(responses),
+                Page:       req.Page,
+                PageSize:   req.PageSize,
+                TotalPages: totalPages,
+        }, nil</span>
+}
+
+// GetItemsByCategory retrieves items by category
+func (u *itemUseCase) GetItemsByCategory(ctx context.Context, categoryName string, page, pageSize int) (*dto.ItemListResponse, error) <span class="cov0" title="0">{
+        category, err := item.NewCategory(categoryName)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid category: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">offset := (page - 1) * pageSize
+        items, err := u.itemRepo.FindByCategory(ctx, category, pageSize, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find items by category: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">responses := make([]dto.ItemResponse, len(items))
+        for i, itm := range items </span><span class="cov0" title="0">{
+                responses[i] = *u.mapItemToResponse(itm)
+        }</span>
+
+        <span class="cov0" title="0">totalPages := (len(responses) + pageSize - 1) / pageSize
+
+        return &amp;dto.ItemListResponse{
+                Items:      responses,
+                Total:      len(responses),
+                Page:       page,
+                PageSize:   pageSize,
+                TotalPages: totalPages,
+        }, nil</span>
+}
+
+// GetAvailableItems retrieves available items
+func (u *itemUseCase) GetAvailableItems(ctx context.Context, page, pageSize int) (*dto.ItemListResponse, error) <span class="cov0" title="0">{
+        offset := (page - 1) * pageSize
+        items, err := u.itemRepo.FindAvailableItems(ctx, pageSize, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find available items: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">responses := make([]dto.ItemResponse, len(items))
+        for i, itm := range items </span><span class="cov0" title="0">{
+                responses[i] = *u.mapItemToResponse(itm)
+        }</span>
+
+        <span class="cov0" title="0">totalPages := (len(responses) + pageSize - 1) / pageSize
+
+        return &amp;dto.ItemListResponse{
+                Items:      responses,
+                Total:      len(responses),
+                Page:       page,
+                PageSize:   pageSize,
+                TotalPages: totalPages,
+        }, nil</span>
+}
+
+// mapItemToResponse converts domain item to response DTO
+func (u *itemUseCase) mapItemToResponse(itm *item.Item) *dto.ItemResponse <span class="cov10" title="5">{
+        images := make([]dto.ImageResponse, len(itm.Images()))
+        for i, img := range itm.Images() </span><span class="cov0" title="0">{
+                images[i] = dto.ImageResponse{
+                        URL:       img.URL(),
+                        Alt:       img.Alt(),
+                        IsPrimary: img.IsPrimary(),
+                }
+        }</span>
+
+        <span class="cov10" title="5">return &amp;dto.ItemResponse{
+                ID:          itm.ID().String(),
+                SKU:         itm.SKU().String(),
+                Name:        itm.Name(),
+                Description: itm.Description(),
+                Price:       itm.Price().Amount(),
+                Currency:    itm.Price().Currency(),
+                Category: dto.CategoryResponse{
+                        Name: itm.Category().Name(),
+                        Slug: itm.Category().Slug(),
+                },
+                Inventory: dto.InventoryResponse{
+                        Quantity:    itm.Inventory().Quantity(),
+                        IsAvailable: itm.Inventory().IsAvailable(),
+                },
+                Images:     images,
+                Attributes: itm.Attributes().All(),
+                Status:     itm.Status().String(),
+                CreatedAt:  itm.CreatedAt(),
+                UpdatedAt:  itm.UpdatedAt(),
+        }</span>
+} </pre>
+		
+		<pre class="file" id="file7" style="display: none">package item
+
+import (
+        "time"
+)
+
+// Item represents the core domain entity for a product
+type Item struct {
+        id          ItemID
+        sku         SKU
+        name        string
+        description string
+        price       Price
+        category    Category
+        inventory   Inventory
+        images      []Image
+        attributes  Attributes
+        status      Status
+        createdAt   time.Time
+        updatedAt   time.Time
+}
+
+// NewItem creates a new Item entity with proper validation
+func NewItem(sku SKU, name, description string, price Price, category Category) (*Item, error) <span class="cov10" title="8">{
+        if err := validateItemCreation(sku, name, price, category); err != nil </span><span class="cov1" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov9" title="7">return &amp;Item{
+                id:          NewItemID(),
+                sku:         sku,
+                name:        name,
+                description: description,
+                price:       price,
+                category:    category,
+                inventory:   func() Inventory </span><span class="cov9" title="7">{ inv, _ := NewInventory(0); return inv }</span>(),
+                images:      make([]Image, 0),
+                attributes:  NewAttributes(),
+                status:      StatusActive,
+                createdAt:   time.Now(),
+                updatedAt:   time.Now(),
+        }, nil
+}
+
+// Getters
+func (i *Item) ID() ItemID         <span class="cov1" title="1">{ return i.id }</span>
+func (i *Item) SKU() SKU           <span class="cov1" title="1">{ return i.sku }</span>
+func (i *Item) Name() string       <span class="cov1" title="1">{ return i.name }</span>
+func (i *Item) Description() string<span class="cov1" title="1">{ return i.description }</span>
+func (i *Item) Price() Price       <span class="cov7" title="4">{ return i.price }</span>
+func (i *Item) Category() Category <span class="cov1" title="1">{ return i.category }</span>
+func (i *Item) Inventory() Inventory <span class="cov5" title="3">{ return i.inventory }</span>
+func (i *Item) Images() []Image    <span class="cov5" title="3">{ return i.images }</span>
+func (i *Item) Attributes() Attributes <span class="cov4" title="2">{ return i.attributes }</span>
+func (i *Item) Status() Status     <span class="cov7" title="4">{ return i.status }</span>
+func (i *Item) CreatedAt() time.Time <span class="cov1" title="1">{ return i.createdAt }</span>
+func (i *Item) UpdatedAt() time.Time <span class="cov8" title="6">{ return i.updatedAt }</span>
+
+// Business methods
+func (i *Item) UpdatePrice(newPrice Price) error <span class="cov4" title="2">{
+        if err := newPrice.Validate(); err != nil </span><span class="cov1" title="1">{
+                return err
+        }</span>
+        <span class="cov1" title="1">i.price = newPrice
+        i.updatedAt = time.Now()
+        return nil</span>
+}
+
+func (i *Item) UpdateInventory(quantity int) error <span class="cov7" title="5">{
+        newInventory, err := NewInventory(quantity)
+        if err != nil </span><span class="cov1" title="1">{
+                return err
+        }</span>
+        <span class="cov7" title="4">i.inventory = newInventory
+        i.updatedAt = time.Now()
+        return nil</span>
+}
+
+func (i *Item) AddImage(image Image) error <span class="cov4" title="2">{
+        if err := image.Validate(); err != nil </span><span class="cov1" title="1">{
+                return err
+        }</span>
+        <span class="cov1" title="1">i.images = append(i.images, image)
+        i.updatedAt = time.Now()
+        return nil</span>
+}
+
+func (i *Item) SetAttribute(key, value string) error <span class="cov5" title="3">{
+        if err := i.attributes.Set(key, value); err != nil </span><span class="cov1" title="1">{
+                return err
+        }</span>
+        <span class="cov4" title="2">i.updatedAt = time.Now()
+        return nil</span>
+}
+
+func (i *Item) Deactivate() <span class="cov4" title="2">{
+        i.status = StatusInactive
+        i.updatedAt = time.Now()
+}</span>
+
+func (i *Item) Activate() <span class="cov4" title="2">{
+        i.status = StatusActive
+        i.updatedAt = time.Now()
+}</span>
+
+func (i *Item) IsAvailable() bool <span class="cov7" title="4">{
+        return i.status == StatusActive &amp;&amp; i.inventory.IsAvailable()
+}</span>
+
+// Private validation method
+func validateItemCreation(sku SKU, name string, price Price, category Category) error <span class="cov10" title="8">{
+        if err := sku.Validate(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov10" title="8">if name == "" </span><span class="cov1" title="1">{
+                return NewDomainError("item name cannot be empty")
+        }</span>
+        <span class="cov9" title="7">if err := price.Validate(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov9" title="7">if err := category.Validate(); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov9" title="7">return nil</span>
+} </pre>
+		
+		<pre class="file" id="file8" style="display: none">package item
+
+import "fmt"
+
+// DomainError represents an error in the item domain
+type DomainError struct {
+        message string
+}
+
+func NewDomainError(message string) *DomainError <span class="cov10" title="22">{
+        return &amp;DomainError{message: message}
+}</span>
+
+func (e *DomainError) Error() string <span class="cov9" title="18">{
+        return e.message
+}</span>
+
+func (e *DomainError) Is(target error) bool <span class="cov4" title="3">{
+        _, ok := target.(*DomainError)
+        return ok
+}</span>
+
+// Specific domain errors
+var (
+        ErrItemNotFound     = &amp;DomainError{message: "item not found"}
+        ErrItemAlreadyExists = &amp;DomainError{message: "item already exists"}
+        ErrInvalidSKU       = &amp;DomainError{message: "invalid SKU format"}
+        ErrInvalidPrice     = &amp;DomainError{message: "invalid price"}
+        ErrInsufficientStock = &amp;DomainError{message: "insufficient stock"}
+)
+
+// ItemNotFoundError creates a specific error for item not found by ID
+func ItemNotFoundError(id ItemID) error <span class="cov1" title="1">{
+        return &amp;DomainError{message: fmt.Sprintf("item with ID %s not found", id.String())}
+}</span>
+
+// ItemNotFoundBySKUError creates a specific error for item not found by SKU
+func ItemNotFoundBySKUError(sku SKU) error <span class="cov1" title="1">{
+        return &amp;DomainError{message: fmt.Sprintf("item with SKU %s not found", sku.String())}
+}</span>
+
+// DuplicateSKUError creates a specific error for duplicate SKU
+func DuplicateSKUError(sku SKU) error <span class="cov1" title="1">{
+        return &amp;DomainError{message: fmt.Sprintf("item with SKU %s already exists", sku.String())}
+}</span> </pre>
+		
+		<pre class="file" id="file9" style="display: none">package item
+
+import (
+        "time"
+
+        "github.com/google/uuid"
+)
+
+// DomainEvent represents a domain event interface
+type DomainEvent interface {
+        EventID() string
+        EventType() string
+        AggregateID() string
+        OccurredAt() time.Time
+        EventData() interface{}
+}
+
+// BaseDomainEvent provides common event functionality
+type BaseDomainEvent struct {
+        eventID     string
+        eventType   string
+        aggregateID string
+        occurredAt  time.Time
+}
+
+func NewBaseDomainEvent(eventType, aggregateID string) BaseDomainEvent <span class="cov0" title="0">{
+        return BaseDomainEvent{
+                eventID:     uuid.New().String(),
+                eventType:   eventType,
+                aggregateID: aggregateID,
+                occurredAt:  time.Now(),
+        }
+}</span>
+
+func (e BaseDomainEvent) EventID() string     <span class="cov0" title="0">{ return e.eventID }</span>
+func (e BaseDomainEvent) EventType() string   <span class="cov0" title="0">{ return e.eventType }</span>
+func (e BaseDomainEvent) AggregateID() string <span class="cov0" title="0">{ return e.aggregateID }</span>
+func (e BaseDomainEvent) OccurredAt() time.Time <span class="cov0" title="0">{ return e.occurredAt }</span>
+
+// ItemCreatedEvent is raised when a new item is created
+type ItemCreatedEvent struct {
+        BaseDomainEvent
+        Item *Item
+}
+
+func NewItemCreatedEvent(item *Item) *ItemCreatedEvent <span class="cov0" title="0">{
+        return &amp;ItemCreatedEvent{
+                BaseDomainEvent: NewBaseDomainEvent("ItemCreated", item.ID().String()),
+                Item:            item,
+        }
+}</span>
+
+func (e *ItemCreatedEvent) EventData() interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{
+                "id":          e.Item.ID().String(),
+                "sku":         e.Item.SKU().String(),
+                "name":        e.Item.Name(),
+                "price":       e.Item.Price().Amount(),
+                "currency":    e.Item.Price().Currency(),
+                "category":    e.Item.Category().Name(),
+                "status":      e.Item.Status().String(),
+        }
+}</span>
+
+// ItemPriceChangedEvent is raised when item price is updated
+type ItemPriceChangedEvent struct {
+        BaseDomainEvent
+        ItemID   ItemID
+        OldPrice Price
+        NewPrice Price
+}
+
+func NewItemPriceChangedEvent(itemID ItemID, oldPrice, newPrice Price) *ItemPriceChangedEvent <span class="cov0" title="0">{
+        return &amp;ItemPriceChangedEvent{
+                BaseDomainEvent: NewBaseDomainEvent("ItemPriceChanged", itemID.String()),
+                ItemID:          itemID,
+                OldPrice:        oldPrice,
+                NewPrice:        newPrice,
+        }
+}</span>
+
+func (e *ItemPriceChangedEvent) EventData() interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{
+                "itemId":      e.ItemID.String(),
+                "oldPrice":    e.OldPrice.Amount(),
+                "newPrice":    e.NewPrice.Amount(),
+                "currency":    e.NewPrice.Currency(),
+                "changeAmount": e.NewPrice.Amount() - e.OldPrice.Amount(),
+        }
+}</span>
+
+// ItemInventoryUpdatedEvent is raised when item inventory is updated
+type ItemInventoryUpdatedEvent struct {
+        BaseDomainEvent
+        ItemID      ItemID
+        OldQuantity int
+        NewQuantity int
+}
+
+func NewItemInventoryUpdatedEvent(itemID ItemID, oldQuantity, newQuantity int) *ItemInventoryUpdatedEvent <span class="cov0" title="0">{
+        return &amp;ItemInventoryUpdatedEvent{
+                BaseDomainEvent: NewBaseDomainEvent("ItemInventoryUpdated", itemID.String()),
+                ItemID:          itemID,
+                OldQuantity:     oldQuantity,
+                NewQuantity:     newQuantity,
+        }
+}</span>
+
+func (e *ItemInventoryUpdatedEvent) EventData() interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{
+                "itemId":       e.ItemID.String(),
+                "oldQuantity":  e.OldQuantity,
+                "newQuantity":  e.NewQuantity,
+                "changeAmount": e.NewQuantity - e.OldQuantity,
+        }
+}</span>
+
+// ItemStatusChangedEvent is raised when item status changes
+type ItemStatusChangedEvent struct {
+        BaseDomainEvent
+        ItemID    ItemID
+        OldStatus Status
+        NewStatus Status
+}
+
+func NewItemStatusChangedEvent(itemID ItemID, oldStatus, newStatus Status) *ItemStatusChangedEvent <span class="cov0" title="0">{
+        return &amp;ItemStatusChangedEvent{
+                BaseDomainEvent: NewBaseDomainEvent("ItemStatusChanged", itemID.String()),
+                ItemID:          itemID,
+                OldStatus:       oldStatus,
+                NewStatus:       newStatus,
+        }
+}</span>
+
+func (e *ItemStatusChangedEvent) EventData() interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{
+                "itemId":    e.ItemID.String(),
+                "oldStatus": e.OldStatus.String(),
+                "newStatus": e.NewStatus.String(),
+        }
+}</span>
+
+// ItemDeletedEvent is raised when an item is deleted
+type ItemDeletedEvent struct {
+        BaseDomainEvent
+        ItemID ItemID
+        SKU    SKU
+}
+
+func NewItemDeletedEvent(itemID ItemID, sku SKU) *ItemDeletedEvent <span class="cov0" title="0">{
+        return &amp;ItemDeletedEvent{
+                BaseDomainEvent: NewBaseDomainEvent("ItemDeleted", itemID.String()),
+                ItemID:          itemID,
+                SKU:             sku,
+        }
+}</span>
+
+func (e *ItemDeletedEvent) EventData() interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{
+                "itemId": e.ItemID.String(),
+                "sku":    e.SKU.String(),
+        }
+}</span> </pre>
+		
+		<pre class="file" id="file10" style="display: none">package item
+
+import (
+        "fmt"
+        "regexp"
+        "strings"
+
+        "github.com/google/uuid"
+)
+
+// ItemID is a value object representing an item identifier
+type ItemID struct {
+        value string
+}
+
+func NewItemID() ItemID <span class="cov7" title="11">{
+        return ItemID{value: uuid.New().String()}
+}</span>
+
+func NewItemIDFromString(id string) (ItemID, error) <span class="cov4" title="4">{
+        if _, err := uuid.Parse(id); err != nil </span><span class="cov2" title="2">{
+                return ItemID{}, NewDomainError("invalid item ID format")
+        }</span>
+        <span class="cov2" title="2">return ItemID{value: id}, nil</span>
+}
+
+func (id ItemID) String() string <span class="cov6" title="7">{
+        return id.value
+}</span>
+
+func (id ItemID) Equals(other ItemID) bool <span class="cov2" title="2">{
+        return id.value == other.value
+}</span>
+
+// SKU is a value object representing a Stock Keeping Unit
+type SKU struct {
+        value string
+}
+
+func NewSKU(sku string) (SKU, error) <span class="cov8" title="16">{
+        sku = strings.TrimSpace(strings.ToUpper(sku))
+        if err := validateSKU(sku); err != nil </span><span class="cov4" title="4">{
+                return SKU{}, err
+        }</span>
+        <span class="cov8" title="12">return SKU{value: sku}, nil</span>
+}
+
+func (s SKU) String() string <span class="cov6" title="7">{
+        return s.value
+}</span>
+
+func (s SKU) Validate() error <span class="cov6" title="8">{
+        return validateSKU(s.value)
+}</span>
+
+func validateSKU(sku string) error <span class="cov10" title="24">{
+        if sku == "" </span><span class="cov1" title="1">{
+                return NewDomainError("SKU cannot be empty")
+        }</span>
+        <span class="cov9" title="23">if len(sku) &lt; 3 || len(sku) &gt; 20 </span><span class="cov2" title="2">{
+                return NewDomainError("SKU must be between 3 and 20 characters")
+        }</span>
+        <span class="cov9" title="21">matched, _ := regexp.MatchString("^[A-Z0-9-_]+$", sku)
+        if !matched </span><span class="cov1" title="1">{
+                return NewDomainError("SKU can only contain uppercase letters, numbers, hyphens, and underscores")
+        }</span>
+        <span class="cov9" title="20">return nil</span>
+}
+
+// Price is a value object representing monetary value
+type Price struct {
+        amount   int64 // stored in cents to avoid floating point issues
+        currency string
+}
+
+func NewPrice(amount float64, currency string) (Price, error) <span class="cov8" title="15">{
+        if amount &lt; 0 </span><span class="cov2" title="2">{
+                return Price{}, NewDomainError("price cannot be negative")
+        }</span>
+        <span class="cov8" title="13">if currency == "" </span><span class="cov1" title="1">{
+                currency = "USD"
+        }</span>
+        <span class="cov8" title="13">currency = strings.ToUpper(currency)
+        
+        // Convert to cents
+        amountInCents := int64(amount * 100)
+        
+        return Price{
+                amount:   amountInCents,
+                currency: currency,
+        }, nil</span>
+}
+
+func (p Price) Amount() float64 <span class="cov5" title="5">{
+        return float64(p.amount) / 100
+}</span>
+
+func (p Price) Currency() string <span class="cov4" title="4">{
+        return p.currency
+}</span>
+
+func (p Price) String() string <span class="cov1" title="1">{
+        return fmt.Sprintf("%.2f %s", p.Amount(), p.currency)
+}</span>
+
+func (p Price) Validate() error <span class="cov7" title="9">{
+        if p.amount &lt; 0 </span><span class="cov0" title="0">{
+                return NewDomainError("price cannot be negative")
+        }</span>
+        <span class="cov7" title="9">if p.currency == "" </span><span class="cov1" title="1">{
+                return NewDomainError("currency cannot be empty")
+        }</span>
+        <span class="cov6" title="8">return nil</span>
+}
+
+// Category is a value object representing item category
+type Category struct {
+        name string
+        slug string
+}
+
+func NewCategory(name string) (Category, error) <span class="cov7" title="11">{
+        name = strings.TrimSpace(name)
+        if name == "" </span><span class="cov1" title="1">{
+                return Category{}, NewDomainError("category name cannot be empty")
+        }</span>
+        
+        <span class="cov7" title="10">slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+        
+        return Category{
+                name: name,
+                slug: slug,
+        }, nil</span>
+}
+
+func (c Category) Name() string <span class="cov4" title="3">{
+        return c.name
+}</span>
+
+func (c Category) Slug() string <span class="cov4" title="3">{
+        return c.slug
+}</span>
+
+func (c Category) Validate() error <span class="cov6" title="7">{
+        if c.name == "" </span><span class="cov0" title="0">{
+                return NewDomainError("category name cannot be empty")
+        }</span>
+        <span class="cov6" title="7">return nil</span>
+}
+
+// Inventory is a value object representing stock quantity
+type Inventory struct {
+        quantity int
+}
+
+func NewInventory(quantity int) (Inventory, error) <span class="cov8" title="16">{
+        if quantity &lt; 0 </span><span class="cov2" title="2">{
+                return Inventory{}, NewDomainError("inventory quantity cannot be negative")
+        }</span>
+        <span class="cov8" title="14">return Inventory{quantity: quantity}, nil</span>
+}
+
+func (i Inventory) Quantity() int <span class="cov5" title="5">{
+        return i.quantity
+}</span>
+
+func (i Inventory) IsAvailable() bool <span class="cov5" title="5">{
+        return i.quantity &gt; 0
+}</span>
+
+func (i Inventory) CanReserve(quantity int) bool <span class="cov5" title="5">{
+        return i.quantity &gt;= quantity
+}</span>
+
+// Image is a value object representing an item image
+type Image struct {
+        url         string
+        alt         string
+        isPrimary   bool
+}
+
+func NewImage(url, alt string, isPrimary bool) (Image, error) <span class="cov5" title="5">{
+        if url == "" </span><span class="cov2" title="2">{
+                return Image{}, NewDomainError("image URL cannot be empty")
+        }</span>
+        <span class="cov4" title="3">return Image{
+                url:       url,
+                alt:       alt,
+                isPrimary: isPrimary,
+        }, nil</span>
+}
+
+func (i Image) URL() string <span class="cov2" title="2">{
+        return i.url
+}</span>
+
+func (i Image) Alt() string <span class="cov2" title="2">{
+        return i.alt
+}</span>
+
+func (i Image) IsPrimary() bool <span class="cov2" title="2">{
+        return i.isPrimary
+}</span>
+
+func (i Image) Validate() error <span class="cov2" title="2">{
+        if i.url == "" </span><span class="cov1" title="1">{
+                return NewDomainError("image URL cannot be empty")
+        }</span>
+        <span class="cov1" title="1">return nil</span>
+}
+
+// Attributes is a value object representing item attributes
+type Attributes struct {
+        data map[string]string
+}
+
+func NewAttributes() Attributes <span class="cov6" title="8">{
+        return Attributes{
+                data: make(map[string]string),
+        }
+}</span>
+
+func (a *Attributes) Set(key, value string) error <span class="cov6" title="6">{
+        key = strings.TrimSpace(key)
+        value = strings.TrimSpace(value)
+        
+        if key == "" </span><span class="cov2" title="2">{
+                return NewDomainError("attribute key cannot be empty")
+        }</span>
+        
+        <span class="cov4" title="4">a.data[key] = value
+        return nil</span>
+}
+
+func (a Attributes) Get(key string) (string, bool) <span class="cov4" title="4">{
+        value, exists := a.data[key]
+        return value, exists
+}</span>
+
+func (a Attributes) All() map[string]string <span class="cov1" title="1">{
+        result := make(map[string]string)
+        for k, v := range a.data </span><span class="cov2" title="2">{
+                result[k] = v
+        }</span>
+        <span class="cov1" title="1">return result</span>
+}
+
+// Status is a value object representing item status
+type Status int
+
+const (
+        StatusActive Status = iota
+        StatusInactive
+        StatusDraft
+        StatusArchived
+)
+
+func (s Status) String() string <span class="cov4" title="4">{
+        switch s </span>{
+        case StatusActive:<span class="cov1" title="1">
+                return "active"</span>
+        case StatusInactive:<span class="cov1" title="1">
+                return "inactive"</span>
+        case StatusDraft:<span class="cov1" title="1">
+                return "draft"</span>
+        case StatusArchived:<span class="cov1" title="1">
+                return "archived"</span>
+        default:<span class="cov0" title="0">
+                return "unknown"</span>
+        }
+}
+
+func StatusFromString(status string) (Status, error) <span class="cov6" title="6">{
+        switch strings.ToLower(status) </span>{
+        case "active":<span class="cov2" title="2">
+                return StatusActive, nil</span>
+        case "inactive":<span class="cov1" title="1">
+                return StatusInactive, nil</span>
+        case "draft":<span class="cov1" title="1">
+                return StatusDraft, nil</span>
+        case "archived":<span class="cov1" title="1">
+                return StatusArchived, nil</span>
+        default:<span class="cov1" title="1">
+                return StatusActive, NewDomainError("invalid status: " + status)</span>
+        }
+} </pre>
+		
+		<pre class="file" id="file11" style="display: none">package config
+
+import (
+        "fmt"
+        "time"
+
+        "github.com/spf13/viper"
+)
+
+// Config holds all configuration for the application
+type Config struct {
+        Server   ServerConfig   `mapstructure:"server"`
+        Database DatabaseConfig `mapstructure:"database"`
+        Log      LogConfig      `mapstructure:"log"`
+        App      AppConfig      `mapstructure:"app"`
+}
+
+// ServerConfig holds server configuration
+type ServerConfig struct {
+        Host         string        `mapstructure:"host"`
+        Port         int           `mapstructure:"port"`
+        ReadTimeout  time.Duration `mapstructure:"read_timeout"`
+        WriteTimeout time.Duration `mapstructure:"write_timeout"`
+        IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
+}
+
+// DatabaseConfig holds database configuration
+type DatabaseConfig struct {
+        Host            string        `mapstructure:"host"`
+        Port            int           `mapstructure:"port"`
+        User            string        `mapstructure:"user"`
+        Password        string        `mapstructure:"password"`
+        DBName          string        `mapstructure:"dbname"`
+        SSLMode         string        `mapstructure:"ssl_mode"`
+        MaxOpenConns    int           `mapstructure:"max_open_conns"`
+        MaxIdleConns    int           `mapstructure:"max_idle_conns"`
+        ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
+        MigrationsPath  string        `mapstructure:"migrations_path"`
+}
+
+// LogConfig holds logging configuration
+type LogConfig struct {
+        Level  string `mapstructure:"level"`
+        Format string `mapstructure:"format"`
+}
+
+// AppConfig holds application-specific configuration
+type AppConfig struct {
+        Name        string `mapstructure:"name"`
+        Version     string `mapstructure:"version"`
+        Environment string `mapstructure:"environment"`
+}
+
+// Load reads configuration from file and environment variables
+func Load(configPath string) (*Config, error) <span class="cov0" title="0">{
+        viper.SetConfigName("config")
+        viper.SetConfigType("yaml")
+        viper.AddConfigPath(configPath)
+        viper.AddConfigPath("./configs")
+        viper.AddConfigPath(".")
+
+        // Set default values
+        setDefaults()
+
+        // Enable automatic env var binding
+        viper.AutomaticEnv()
+
+        // Try to read config file
+        if err := viper.ReadInConfig(); err != nil </span><span class="cov0" title="0">{
+                if _, ok := err.(viper.ConfigFileNotFoundError); !ok </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to read config file: %w", err)
+                }</span>
+                // Config file not found; use defaults and env vars
+        }
+
+        <span class="cov0" title="0">var config Config
+        if err := viper.Unmarshal(&amp;config); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;config, nil</span>
+}
+
+// setDefaults sets default configuration values
+func setDefaults() <span class="cov0" title="0">{
+        // Server defaults
+        viper.SetDefault("server.host", "0.0.0.0")
+        viper.SetDefault("server.port", 8080)
+        viper.SetDefault("server.read_timeout", "10s")
+        viper.SetDefault("server.write_timeout", "10s")
+        viper.SetDefault("server.idle_timeout", "60s")
+
+        // Database defaults
+        viper.SetDefault("database.host", "localhost")
+        viper.SetDefault("database.port", 5432)
+        viper.SetDefault("database.user", "postgres")
+        viper.SetDefault("database.password", "password")
+        viper.SetDefault("database.dbname", "item_pdp_db")
+        viper.SetDefault("database.ssl_mode", "disable")
+        viper.SetDefault("database.max_open_conns", 25)
+        viper.SetDefault("database.max_idle_conns", 25)
+        viper.SetDefault("database.conn_max_lifetime", "5m")
+        viper.SetDefault("database.migrations_path", "file://migrations")
+
+        // Log defaults
+        viper.SetDefault("log.level", "info")
+        viper.SetDefault("log.format", "json")
+
+        // App defaults
+        viper.SetDefault("app.name", "item-pdp-service")
+        viper.SetDefault("app.version", "1.0.0")
+        viper.SetDefault("app.environment", "development")
+}</span>
+
+// GetDSN returns database connection string
+func (c *Config) GetDSN() string <span class="cov0" title="0">{
+        return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+                c.Database.Host,
+                c.Database.Port,
+                c.Database.User,
+                c.Database.Password,
+                c.Database.DBName,
+                c.Database.SSLMode,
+        )
+}</span>
+
+// GetServerAddress returns server address
+func (c *Config) GetServerAddress() string <span class="cov0" title="0">{
+        return fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)
+}</span>
+
+// IsDevelopment returns true if environment is development
+func (c *Config) IsDevelopment() bool <span class="cov0" title="0">{
+        return c.App.Environment == "development"
+}</span>
+
+// IsProduction returns true if environment is production
+func (c *Config) IsProduction() bool <span class="cov0" title="0">{
+        return c.App.Environment == "production"
+}</span> </pre>
+		
+		<pre class="file" id="file12" style="display: none">package database
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "time"
+
+        "item-pdp-service/internal/infrastructure/config"
+
+        _ "github.com/lib/pq"
+        "github.com/rs/zerolog/log"
+)
+
+// DB wraps sql.DB to provide additional functionality
+type DB struct {
+        *sql.DB
+}
+
+// NewConnection creates a new database connection
+func NewConnection(config *config.Config) (*DB, error) <span class="cov0" title="0">{
+        db, err := sql.Open("postgres", config.GetDSN())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to open database: %w", err)
+        }</span>
+
+        // Configure connection pool
+        <span class="cov0" title="0">db.SetMaxOpenConns(config.Database.MaxOpenConns)
+        db.SetMaxIdleConns(config.Database.MaxIdleConns)
+        db.SetConnMaxLifetime(config.Database.ConnMaxLifetime)
+
+        // Test the connection
+        if err := db.Ping(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to ping database: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Info().
+                Str("host", config.Database.Host).
+                Int("port", config.Database.Port).
+                Str("database", config.Database.DBName).
+                Msg("Connected to database")
+
+        return &amp;DB{DB: db}, nil</span>
+}
+
+// Close closes the database connection
+func (db *DB) Close() error <span class="cov0" title="0">{
+        if db.DB != nil </span><span class="cov0" title="0">{
+                log.Info().Msg("Closing database connection")
+                return db.DB.Close()
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Health checks the database connection health
+func (db *DB) Health() error <span class="cov0" title="0">{
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+
+        if err := db.PingContext(ctx); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("database health check failed: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// WithTransaction executes a function within a database transaction
+func (db *DB) WithTransaction(fn func(*sql.Tx) error) error <span class="cov0" title="0">{
+        tx, err := db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to begin transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := fn(tx); err != nil </span><span class="cov0" title="0">{
+                if rollbackErr := tx.Rollback(); rollbackErr != nil </span><span class="cov0" title="0">{
+                        log.Error().Err(rollbackErr).Msg("Failed to rollback transaction")
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov0" title="0">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to commit transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+} </pre>
+		
+		<pre class="file" id="file13" style="display: none">package persistence
+
+import (
+        "context"
+        "database/sql"
+        "encoding/json"
+        "fmt"
+        "strings"
+        "time"
+
+        "item-pdp-service/internal/domain/item"
+        "item-pdp-service/internal/infrastructure/database"
+
+        "github.com/rs/zerolog/log"
+)
+
+// postgresItemRepository implements item.Repository using PostgreSQL
+type postgresItemRepository struct {
+        db *database.DB
+}
+
+// NewPostgresItemRepository creates a new PostgreSQL item repository
+func NewPostgresItemRepository(db *database.DB) item.Repository <span class="cov10" title="7">{
+        return &amp;postgresItemRepository{
+                db: db,
+        }
+}</span>
+
+// Save saves an item to the database
+func (r *postgresItemRepository) Save(ctx context.Context, itm *item.Item) error <span class="cov4" title="2">{
+        query := `
+                INSERT INTO items (
+                        id, sku, name, description, price_amount, price_currency,
+                        category_name, category_slug, inventory_quantity, images,
+                        attributes, status, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+
+        imagesJSON, err := json.Marshal(r.imagesToJSON(itm.Images()))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal images: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">attributesJSON, err := json.Marshal(itm.Attributes().All())
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal attributes: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">_, err = r.db.ExecContext(ctx, query,
+                itm.ID().String(),
+                itm.SKU().String(),
+                itm.Name(),
+                itm.Description(),
+                int64(itm.Price().Amount() * 100), // Store in cents
+                itm.Price().Currency(),
+                itm.Category().Name(),
+                itm.Category().Slug(),
+                itm.Inventory().Quantity(),
+                imagesJSON,
+                attributesJSON,
+                itm.Status().String(),
+                itm.CreatedAt(),
+                itm.UpdatedAt(),
+        )
+
+        if err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("failed to save item: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">log.Debug().
+                Str("item_id", itm.ID().String()).
+                Str("sku", itm.SKU().String()).
+                Msg("Item saved successfully")
+
+        return nil</span>
+}
+
+// FindByID finds an item by ID
+func (r *postgresItemRepository) FindByID(ctx context.Context, id item.ItemID) (*item.Item, error) <span class="cov6" title="3">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items WHERE id = $1`
+
+        var row itemRow
+        err := r.db.QueryRowContext(ctx, query, id.String()).Scan(
+                &amp;row.ID,
+                &amp;row.SKU,
+                &amp;row.Name,
+                &amp;row.Description,
+                &amp;row.PriceAmount,
+                &amp;row.PriceCurrency,
+                &amp;row.CategoryName,
+                &amp;row.CategorySlug,
+                &amp;row.InventoryQuantity,
+                &amp;row.Images,
+                &amp;row.Attributes,
+                &amp;row.Status,
+                &amp;row.CreatedAt,
+                &amp;row.UpdatedAt,
+        )
+
+        if err != nil </span><span class="cov4" title="2">{
+                if err == sql.ErrNoRows </span><span class="cov1" title="1">{
+                        return nil, item.ItemNotFoundError(id)
+                }</span>
+                <span class="cov1" title="1">return nil, fmt.Errorf("failed to find item by ID: %w", err)</span>
+        }
+
+        <span class="cov1" title="1">return r.rowToItem(&amp;row)</span>
+}
+
+// FindBySKU finds an item by SKU
+func (r *postgresItemRepository) FindBySKU(ctx context.Context, sku item.SKU) (*item.Item, error) <span class="cov4" title="2">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items WHERE sku = $1`
+
+        var row itemRow
+        err := r.db.QueryRowContext(ctx, query, sku.String()).Scan(
+                &amp;row.ID,
+                &amp;row.SKU,
+                &amp;row.Name,
+                &amp;row.Description,
+                &amp;row.PriceAmount,
+                &amp;row.PriceCurrency,
+                &amp;row.CategoryName,
+                &amp;row.CategorySlug,
+                &amp;row.InventoryQuantity,
+                &amp;row.Images,
+                &amp;row.Attributes,
+                &amp;row.Status,
+                &amp;row.CreatedAt,
+                &amp;row.UpdatedAt,
+        )
+
+        if err != nil </span><span class="cov1" title="1">{
+                if err == sql.ErrNoRows </span><span class="cov1" title="1">{
+                        return nil, item.ItemNotFoundBySKUError(sku)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find item by SKU: %w", err)</span>
+        }
+
+        <span class="cov1" title="1">return r.rowToItem(&amp;row)</span>
+}
+
+// Update updates an existing item
+func (r *postgresItemRepository) Update(ctx context.Context, itm *item.Item) error <span class="cov4" title="2">{
+        query := `
+                UPDATE items SET
+                        name = $2, description = $3, price_amount = $4, price_currency = $5,
+                        category_name = $6, category_slug = $7, inventory_quantity = $8,
+                        images = $9, attributes = $10, status = $11, updated_at = $12
+                WHERE id = $1`
+
+        imagesJSON, err := json.Marshal(r.imagesToJSON(itm.Images()))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal images: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">attributesJSON, err := json.Marshal(itm.Attributes().All())
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal attributes: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">result, err := r.db.ExecContext(ctx, query,
+                itm.ID().String(),
+                itm.Name(),
+                itm.Description(),
+                int64(itm.Price().Amount() * 100), // Store in cents
+                itm.Price().Currency(),
+                itm.Category().Name(),
+                itm.Category().Slug(),
+                itm.Inventory().Quantity(),
+                imagesJSON,
+                attributesJSON,
+                itm.Status().String(),
+                itm.UpdatedAt(),
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update item: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">rowsAffected, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get rows affected: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">if rowsAffected == 0 </span><span class="cov1" title="1">{
+                return item.ItemNotFoundError(itm.ID())
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// Delete deletes an item
+func (r *postgresItemRepository) Delete(ctx context.Context, id item.ItemID) error <span class="cov4" title="2">{
+        query := `DELETE FROM items WHERE id = $1`
+
+        result, err := r.db.ExecContext(ctx, query, id.String())
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete item: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">rowsAffected, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get rows affected: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">if rowsAffected == 0 </span><span class="cov1" title="1">{
+                return item.ItemNotFoundError(id)
+        }</span>
+
+        <span class="cov1" title="1">return nil</span>
+}
+
+// FindByCategory finds items by category
+func (r *postgresItemRepository) FindByCategory(ctx context.Context, category item.Category, limit, offset int) ([]*item.Item, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items WHERE category_slug = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+
+        rows, err := r.db.QueryContext(ctx, query, category.Slug(), limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find items by category: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return r.rowsToItems(rows)</span>
+}
+
+// FindByStatus finds items by status
+func (r *postgresItemRepository) FindByStatus(ctx context.Context, status item.Status, limit, offset int) ([]*item.Item, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+
+        rows, err := r.db.QueryContext(ctx, query, status.String(), limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find items by status: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return r.rowsToItems(rows)</span>
+}
+
+// Search searches for items
+func (r *postgresItemRepository) Search(ctx context.Context, query string, limit, offset int) ([]*item.Item, error) <span class="cov4" title="2">{
+        searchQuery := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items 
+                WHERE (name ILIKE $1 OR description ILIKE $1 OR sku ILIKE $1)
+                ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+
+        searchTerm := "%" + strings.ToLower(query) + "%"
+        rows, err := r.db.QueryContext(ctx, searchQuery, searchTerm, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search items: %w", err)
+        }</span>
+        <span class="cov4" title="2">defer rows.Close()
+
+        return r.rowsToItems(rows)</span>
+}
+
+// FindAvailableItems finds available items
+func (r *postgresItemRepository) FindAvailableItems(ctx context.Context, limit, offset int) ([]*item.Item, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items 
+                WHERE status = 'active' AND inventory_quantity &gt; 0
+                ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+
+        rows, err := r.db.QueryContext(ctx, query, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find available items: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return r.rowsToItems(rows)</span>
+}
+
+// FindItemsWithLowStock finds items with low stock
+func (r *postgresItemRepository) FindItemsWithLowStock(ctx context.Context, threshold int) ([]*item.Item, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, sku, name, description, price_amount, price_currency,
+                           category_name, category_slug, inventory_quantity, images,
+                           attributes, status, created_at, updated_at
+                FROM items 
+                WHERE inventory_quantity &lt;= $1 AND status = 'active'
+                ORDER BY inventory_quantity ASC`
+
+        rows, err := r.db.QueryContext(ctx, query, threshold)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to find items with low stock: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return r.rowsToItems(rows)</span>
+}
+
+// CountByCategory counts items by category
+func (r *postgresItemRepository) CountByCategory(ctx context.Context, category item.Category) (int, error) <span class="cov0" title="0">{
+        query := `SELECT COUNT(*) FROM items WHERE category_slug = $1`
+        
+        var count int
+        err := r.db.QueryRowContext(ctx, query, category.Slug()).Scan(&amp;count)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to count items by category: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return count, nil</span>
+}
+
+// CountByStatus counts items by status
+func (r *postgresItemRepository) CountByStatus(ctx context.Context, status item.Status) (int, error) <span class="cov0" title="0">{
+        query := `SELECT COUNT(*) FROM items WHERE status = $1`
+        
+        var count int
+        err := r.db.QueryRowContext(ctx, query, status.String()).Scan(&amp;count)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to count items by status: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return count, nil</span>
+}
+
+// ExistsBySKU checks if an item exists by SKU
+func (r *postgresItemRepository) ExistsBySKU(ctx context.Context, sku item.SKU) (bool, error) <span class="cov4" title="2">{
+        query := `SELECT EXISTS(SELECT 1 FROM items WHERE sku = $1)`
+        
+        var exists bool
+        err := r.db.QueryRowContext(ctx, query, sku.String()).Scan(&amp;exists)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, fmt.Errorf("failed to check SKU existence: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">return exists, nil</span>
+}
+
+// ExistsByID checks if an item exists by ID
+func (r *postgresItemRepository) ExistsByID(ctx context.Context, id item.ItemID) (bool, error) <span class="cov0" title="0">{
+        query := `SELECT EXISTS(SELECT 1 FROM items WHERE id = $1)`
+        
+        var exists bool
+        err := r.db.QueryRowContext(ctx, query, id.String()).Scan(&amp;exists)
+        if err != nil </span><span class="cov0" title="0">{
+                return false, fmt.Errorf("failed to check ID existence: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return exists, nil</span>
+}
+
+// Helper types and methods
+
+type itemRow struct {
+        ID                string
+        SKU               string
+        Name              string
+        Description       string
+        PriceAmount       int64
+        PriceCurrency     string
+        CategoryName      string
+        CategorySlug      string
+        InventoryQuantity int
+        Images            []byte
+        Attributes        []byte
+        Status            string
+        CreatedAt         time.Time
+        UpdatedAt         time.Time
+}
+
+type imageJSON struct {
+        URL       string `json:"url"`
+        Alt       string `json:"alt"`
+        IsPrimary bool   `json:"is_primary"`
+}
+
+func (r *postgresItemRepository) rowToItem(row *itemRow) (*item.Item, error) <span class="cov6" title="3">{
+        // Convert database row to domain item
+        id, err := item.NewItemIDFromString(row.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid item ID: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">sku, err := item.NewSKU(row.SKU)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid SKU: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">price, err := item.NewPrice(float64(row.PriceAmount)/100, row.PriceCurrency)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid price: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">category, err := item.NewCategory(row.CategoryName)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid category: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">inventory, err := item.NewInventory(row.InventoryQuantity)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid inventory: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">status, err := item.StatusFromString(row.Status)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid status: %w", err)
+        }</span>
+
+        // Parse images
+        <span class="cov6" title="3">var imagesJSON []imageJSON
+        if err := json.Unmarshal(row.Images, &amp;imagesJSON); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to unmarshal images: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">images := make([]item.Image, len(imagesJSON))
+        for i, imgJSON := range imagesJSON </span><span class="cov0" title="0">{
+                img, err := item.NewImage(imgJSON.URL, imgJSON.Alt, imgJSON.IsPrimary)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid image: %w", err)
+                }</span>
+                <span class="cov0" title="0">images[i] = img</span>
+        }
+
+        // Parse attributes
+        <span class="cov6" title="3">var attributesMap map[string]string
+        if err := json.Unmarshal(row.Attributes, &amp;attributesMap); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+        }</span>
+
+        <span class="cov6" title="3">attributes := item.NewAttributes()
+        for key, value := range attributesMap </span><span class="cov0" title="0">{
+                if err := attributes.Set(key, value); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to set attribute: %w", err)
+                }</span>
+        }
+
+        // Create item using domain constructor
+        <span class="cov6" title="3">createdItem, err := item.NewItem(sku, row.Name, row.Description, price, category)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create item: %w", err)
+        }</span>
+
+        // TODO: Set remaining fields using item methods
+        // This is a simplified implementation - normally you'd need proper methods
+        // to reconstruct the complete item state including ID, inventory, images, etc.
+        
+        // Use the variables to avoid compilation errors
+        <span class="cov6" title="3">_ = id
+        _ = inventory 
+        _ = status
+        _ = images
+        _ = attributes
+
+        return createdItem, nil</span>
+}
+
+func (r *postgresItemRepository) rowsToItems(rows *sql.Rows) ([]*item.Item, error) <span class="cov4" title="2">{
+        var items []*item.Item
+
+        for rows.Next() </span><span class="cov1" title="1">{
+                var row itemRow
+                err := rows.Scan(
+                        &amp;row.ID,
+                        &amp;row.SKU,
+                        &amp;row.Name,
+                        &amp;row.Description,
+                        &amp;row.PriceAmount,
+                        &amp;row.PriceCurrency,
+                        &amp;row.CategoryName,
+                        &amp;row.CategorySlug,
+                        &amp;row.InventoryQuantity,
+                        &amp;row.Images,
+                        &amp;row.Attributes,
+                        &amp;row.Status,
+                        &amp;row.CreatedAt,
+                        &amp;row.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan row: %w", err)
+                }</span>
+
+                <span class="cov1" title="1">itm, err := r.rowToItem(&amp;row)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to convert row to item: %w", err)
+                }</span>
+
+                <span class="cov1" title="1">items = append(items, itm)</span>
+        }
+
+        <span class="cov4" title="2">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("rows iteration error: %w", err)
+        }</span>
+
+        <span class="cov4" title="2">return items, nil</span>
+}
+
+func (r *postgresItemRepository) imagesToJSON(images []item.Image) []imageJSON <span class="cov7" title="4">{
+        result := make([]imageJSON, len(images))
+        for i, img := range images </span><span class="cov0" title="0">{
+                result[i] = imageJSON{
+                        URL:       img.URL(),
+                        Alt:       img.Alt(),
+                        IsPrimary: img.IsPrimary(),
+                }
+        }</span>
+        <span class="cov7" title="4">return result</span>
+} </pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

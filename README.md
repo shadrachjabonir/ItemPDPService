@@ -314,12 +314,6 @@ docker run -p 8080:8080 item-pdp-service
 - SQL injection prevention through prepared statements
 - Comprehensive error handling without information leakage
 
-## 📚 Additional Documentation
-
-- [`TESTING_GUIDE.md`](./TESTING_GUIDE.md) - Comprehensive testing documentation
-- [`flaw.md`](./flaw.md) - Code quality and architecture analysis
-- [`scratchbook.md`](./scratchbook.md) - Development notes and insights
-
 ## 🎯 Code Review Challenge: Finding & Fixing Flaws
 
 ### **Objective**

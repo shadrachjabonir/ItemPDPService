@@ -319,17 +319,6 @@ docker run -p 8080:8080 item-pdp-service
 ### **Objective**
 This codebase contains **10 intentional flaws** designed as a training exercise for code review skills, security awareness, and architectural best practices. Your mission is to identify all flaws and create merge requests to fix them.
 
-### **Types of Flaws to Find**
-
-#### **🔒 Security Vulnerabilities **
-- Common security issues that could expose the application to various attack vectors
-
-#### **🏗️ Architecture Anti-Patterns **
-- Design patterns that violate Domain-Driven Design and Clean Architecture principles
-
-#### **⚡ Performance Issues **
-- Code patterns that could impact application performance and scalability
-
 ### **Finding the Flaws**
 
 #### **🕵️ Detection Strategy**
@@ -339,7 +328,7 @@ Use systematic code review techniques and available development tools to identif
 Review all architectural layers and their implementations for potential issues
 
 #### **🔍 Red Flags to Look For**
-- Code patterns that deviate from security, architecture, and performance best practices
+Code patterns that deviate from security, architecture, and performance best practices
 
 ### **Submission Process**
 

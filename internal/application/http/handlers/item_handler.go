@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -637,8 +636,8 @@ func (h *ItemHandler) ProcessItemsBatch(c *gin.Context) {
 			// Simulate long-running processing without context awareness
 			time.Sleep(5 * time.Second) // Blocking operation
 
-			// More processing that ignores context cancellation
-			item, err := h.itemUseCase.GetItemByID(context.Background(), id) // Wrong context!
+			// More processing that ignores context cancellation -- should be fixes by using gin request context
+			item, err := h.itemUseCase.GetItemByID(c.Request.Context(), id)
 			if err != nil {
 				results <- fmt.Sprintf("Error processing %s: %v", id, err)
 				return

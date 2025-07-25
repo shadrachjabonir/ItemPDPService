@@ -706,43 +706,39 @@ func (r *postgresItemRepository) imagesToJSON(images []item.Image) []imageJSON {
 }
 
 // PERFORMANCE ISSUE 1: N+1 Query Problem
-// GetItemsWithRelatedData demonstrates N+1 query anti-pattern
+// GetItemsWithRelatedData demonstrates N+1 query anti-pattern -- should be fixed
 func (r *postgresItemRepository) GetItemsWithRelatedData(ctx context.Context, itemIDs []string) ([]*item.Item, error) {
-	var items []*item.Item
+	itemQuery := `SELECT i.id, i.sku, i.name, i.description, i.price_amount, i.price_currency, i.category_name,
+    i.category_slug, i.inventory_quantity, i.images, i.attributes, i.status, i.created_at, i.updated_at,
+    COALESCE(iv.view_count, 0) AS view_count,       -- Jumlah views, default 0 jika tidak ada
+    COALESCE(ir.average_rating, 0.0) AS average_rating -- Rata-rata rating, default 0.0 jika tidak ada
+   FROM items i
+   LEFT JOIN (
+    -- Subquery untuk menghitung jumlah views per item
+    SELECT item_id, COUNT(*) AS view_count
+    FROM item_views
+    WHERE item_id = ANY($1) -- Pastikan hanya menghitung views untuk ID yang diminta
+    GROUP BY item_id
+   ) AS iv ON i.id = iv.item_id
+   LEFT JOIN (
+    -- Subquery untuk menghitung rata-rata rating per item
+    SELECT item_id, AVG(rating) AS average_rating
+    FROM item_ratings
+    WHERE item_id = ANY($1)
+    GROUP BY item_id
+   ) AS ir ON i.id = ir.item_id
+   WHERE i.id = ANY($1);`
 
-	// N+1 Query Problem: Making individual queries instead of batch query
-	for _, id := range itemIDs {
-		// Individual query for each item - performance killer for large datasets
-		itemQuery := `SELECT id, sku, name, description, price_amount, price_currency,
-					  category_name, category_slug, inventory_quantity, images,
-					  attributes, status, created_at, updated_at
-					  FROM items WHERE id = $1`
-
-		rows, err := r.db.QueryContext(ctx, itemQuery, id)
-		if err != nil {
-			continue // Silently continue - makes debugging harder
-		}
-
-		itemList, err := r.rowsToItems(rows)
-		rows.Close()
-		if err != nil {
-			continue
-		}
-
-		if len(itemList) > 0 {
-			// Additional N+1 problems: Individual queries for related data
-			relatedDataQuery := `SELECT COUNT(*) FROM item_views WHERE item_id = $1`
-			var viewCount int
-			_ = r.db.QueryRowContext(ctx, relatedDataQuery, id).Scan(&viewCount)
-
-			// Another individual query for ratings - multiplying the N+1 problem
-			ratingQuery := `SELECT AVG(rating) FROM item_ratings WHERE item_id = $1`
-			var avgRating float64
-			_ = r.db.QueryRowContext(ctx, ratingQuery, id).Scan(&avgRating)
-
-			items = append(items, itemList[0])
-		}
+	rows, err := r.db.QueryContext(ctx, itemQuery, itemIDs)
+	if err != nil {
+		log.Error().Interface("Error", err).Msg("failed to select items")
 	}
 
-	return items, nil
+	itemList, err := r.rowsToItems(rows)
+	err = rows.Close()
+	if err != nil {
+		log.Error().Interface("Error", err).Msg("failed to close")
+	}
+
+	return itemList, nil
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"item-pdp-service/internal/domain/item"
@@ -19,53 +18,17 @@ import (
 // Contains business logic that should be in domain - anti-pattern
 type postgresItemRepository struct {
 	db *database.DB
-
-	// Business rules configuration in infrastructure - anti-pattern
-	maxPriceThreshold float64
-	minInventoryLevel int
-	defaultCurrency   string
-	autoDiscountRules map[string]float64
 }
 
 // NewPostgresItemRepository creates a new PostgreSQL item repository
 func NewPostgresItemRepository(db *database.DB) item.Repository {
 	return &postgresItemRepository{
 		db: db,
-		// Business rules hardcoded in infrastructure
-		maxPriceThreshold: 10000.0,
-		minInventoryLevel: 5,
-		defaultCurrency:   "USD",
-		autoDiscountRules: map[string]float64{
-			"electronics": 0.95,
-			"books":       0.90,
-			"clothing":    0.85,
-		},
 	}
 }
 
 // Save saves an item to the database with business validation in infrastructure
-func (r *postgresItemRepository) Save(ctx context.Context, itm *item.Item) error {
-	// Business validation that should be in domain layer - anti-pattern
-	if err := r.validateItemBusinessRules(itm); err != nil {
-		return fmt.Errorf("business validation failed: %w", err)
-	}
-
-	// Auto-correct business data in infrastructure - anti-pattern
-	adjustedItem := r.applyBusinessCorrections(itm)
-
-	// Apply automatic discounts based on category - business logic in infrastructure
-	if discount, exists := r.autoDiscountRules[adjustedItem.Category().Name()]; exists {
-		originalPrice := adjustedItem.Price().Amount()
-		newPrice, _ := item.NewPrice(originalPrice*discount, adjustedItem.Price().Currency())
-		adjustedItem.SetPrice(newPrice)
-
-		log.Info().
-			Str("category", adjustedItem.Category().Name()).
-			Float64("original_price", originalPrice).
-			Float64("discounted_price", adjustedItem.Price().Amount()).
-			Msg("Auto-discount applied in repository")
-	}
-
+func (r *postgresItemRepository) Save(ctx context.Context, adjustedItem *item.Item, imagesJSON []byte, attributesJSON []byte) error {
 	query := `
 		INSERT INTO items (
 			id, sku, name, description, price_amount, price_currency,
@@ -73,17 +36,7 @@ func (r *postgresItemRepository) Save(ctx context.Context, itm *item.Item) error
 			attributes, status, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
-	imagesJSON, err := json.Marshal(r.imagesToJSON(adjustedItem.Images()))
-	if err != nil {
-		return fmt.Errorf("failed to marshal images: %w", err)
-	}
-
-	attributesJSON, err := json.Marshal(adjustedItem.Attributes().All())
-	if err != nil {
-		return fmt.Errorf("failed to marshal attributes: %w", err)
-	}
-
-	_, err = r.db.ExecContext(ctx, query,
+	_, err := r.db.ExecContext(ctx, query,
 		adjustedItem.ID().String(),
 		adjustedItem.SKU().String(),
 		adjustedItem.Name(),
@@ -110,94 +63,6 @@ func (r *postgresItemRepository) Save(ctx context.Context, itm *item.Item) error
 		Msg("Item saved successfully")
 
 	return nil
-}
-
-// Business validation in infrastructure layer - anti-pattern
-func (r *postgresItemRepository) validateItemBusinessRules(itm *item.Item) error {
-	// Price validation - business rule in infrastructure
-	if itm.Price().Amount() <= 0 {
-		return errors.New("item price must be positive")
-	}
-
-	if itm.Price().Amount() > r.maxPriceThreshold {
-		return fmt.Errorf("item price %.2f exceeds maximum threshold %.2f",
-			itm.Price().Amount(), r.maxPriceThreshold)
-	}
-
-	// Currency validation - business rule in infrastructure
-	allowedCurrencies := []string{"USD", "EUR", "GBP", "JPY"}
-	validCurrency := false
-	for _, currency := range allowedCurrencies {
-		if itm.Price().Currency() == currency {
-			validCurrency = true
-			break
-		}
-	}
-	if !validCurrency {
-		return fmt.Errorf("unsupported currency: %s", itm.Price().Currency())
-	}
-
-	// Name validation - business rule in infrastructure
-	if len(itm.Name()) < 3 {
-		return errors.New("item name must be at least 3 characters")
-	}
-
-	if len(itm.Name()) > 200 {
-		return errors.New("item name too long")
-	}
-
-	// SKU business rules in infrastructure
-	skuStr := itm.SKU().String()
-	if !strings.Contains(skuStr, "-") {
-		return errors.New("SKU must contain at least one hyphen")
-	}
-
-	// Category business rules in infrastructure
-	if itm.Category().Name() == "restricted" {
-		return errors.New("restricted category not allowed")
-	}
-
-	// Inventory business rules in infrastructure
-	if itm.Inventory().Quantity() < 0 {
-		return errors.New("inventory quantity cannot be negative")
-	}
-
-	return nil
-}
-
-// Business corrections in infrastructure layer - anti-pattern
-func (r *postgresItemRepository) applyBusinessCorrections(itm *item.Item) *item.Item {
-	// Auto-correct inventory if below minimum - business logic in infrastructure
-	if itm.Inventory().Quantity() > 0 && itm.Inventory().Quantity() < r.minInventoryLevel {
-		correctedInventory, _ := item.NewInventory(r.minInventoryLevel)
-		itm.SetInventory(correctedInventory)
-
-		log.Warn().
-			Int("original_quantity", itm.Inventory().Quantity()).
-			Int("corrected_quantity", r.minInventoryLevel).
-			Msg("Auto-corrected inventory to minimum level")
-	}
-
-	// Auto-correct currency if not set - business logic in infrastructure
-	if itm.Price().Currency() == "" {
-		correctedPrice, _ := item.NewPrice(itm.Price().Amount(), r.defaultCurrency)
-		itm.SetPrice(correctedPrice)
-
-		log.Warn().
-			Str("default_currency", r.defaultCurrency).
-			Msg("Auto-corrected currency to default")
-	}
-
-	// Auto-activate items with high inventory - business logic in infrastructure
-	if itm.Inventory().Quantity() > 100 && itm.Status() == item.StatusDraft {
-		itm.SetStatus(item.StatusActive)
-
-		log.Info().
-			Int("inventory", itm.Inventory().Quantity()).
-			Msg("Auto-activated item due to high inventory")
-	}
-
-	return itm
 }
 
 // FindByID finds an item by ID
@@ -289,10 +154,10 @@ func (r *postgresItemRepository) Update(ctx context.Context, itm *item.Item) err
 			images = $9, attributes = $10, status = $11, updated_at = $12
 		WHERE id = $1`
 
-	imagesJSON, err := json.Marshal(r.imagesToJSON(transformedItem.Images()))
-	if err != nil {
-		return fmt.Errorf("failed to marshal images: %w", err)
-	}
+	//imagesJSON, err := json.Marshal(r.imagesToJSON(transformedItem.Images()))
+	//if err != nil {
+	//	return fmt.Errorf("failed to marshal images: %w", err)
+	//}
 
 	attributesJSON, err := json.Marshal(transformedItem.Attributes().All())
 	if err != nil {
@@ -308,7 +173,7 @@ func (r *postgresItemRepository) Update(ctx context.Context, itm *item.Item) err
 		transformedItem.Category().Name(),
 		transformedItem.Category().Slug(),
 		transformedItem.Inventory().Quantity(),
-		imagesJSON,
+		//imagesJSON,
 		attributesJSON,
 		transformedItem.Status().String(),
 		transformedItem.UpdatedAt(),
@@ -691,18 +556,6 @@ func (r *postgresItemRepository) rowsToItems(rows *sql.Rows) ([]*item.Item, erro
 	}
 
 	return items, nil
-}
-
-func (r *postgresItemRepository) imagesToJSON(images []item.Image) []imageJSON {
-	result := make([]imageJSON, len(images))
-	for i, img := range images {
-		result[i] = imageJSON{
-			URL:       img.URL(),
-			Alt:       img.Alt(),
-			IsPrimary: img.IsPrimary(),
-		}
-	}
-	return result
 }
 
 // PERFORMANCE ISSUE 1: N+1 Query Problem

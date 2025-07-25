@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"item-pdp-service/internal/application/dto"
@@ -630,28 +631,45 @@ func (h *ItemHandler) ProcessItemsBatch(c *gin.Context) {
 	// PERFORMANCE ISSUE: Goroutines launched without proper cleanup
 	// These goroutines will leak if request is cancelled or connection drops
 	results := make(chan string, len(req.ItemIDs))
+	reqCtx := c.Request.Context()
+
+	var wg sync.WaitGroup
 
 	for _, itemID := range req.ItemIDs {
-		// Launch goroutine without context cancellation handling
-		go func(id string) {
-			// Simulate long-running processing without context awareness
-			time.Sleep(5 * time.Second) // Blocking operation
+		wg.Add(1)
 
-			// More processing that ignores context cancellation
-			item, err := h.itemUseCase.GetItemByID(context.Background(), id) // Wrong context!
+		go func(ctx context.Context, id string) { //Use context inside go func
+			defer wg.Done()
+
+			select {
+			case <-ctx.Done():
+				results <- fmt.Sprintf("Processing %s cancelled during sleep: %v", id, ctx.Err())
+				return
+			case <-time.After(5 * time.Second):
+			}
+
+			item, err := h.itemUseCase.GetItemByID(ctx, id) //Change the context used for call
 			if err != nil {
 				results <- fmt.Sprintf("Error processing %s: %v", id, err)
 				return
 			}
 
-			// Expensive operation without cancellation check
-			for i := 0; i < 1000000; i++ {
-				// Simulated heavy computation - never checks for cancellation
+			for i := 0; i < 100000000; i++ {
 				_ = fmt.Sprintf("Processing item %s iteration %d", item.Name, i)
+
+				if i%1000000 == 0 {
+					select {
+					case <-ctx.Done():
+						results <- fmt.Sprintf("Processing %s cancelled during heavy computation: %v", id, ctx.Err())
+						return
+					default:
+						_ = fmt.Sprintf("Processing item %s iteration %d", item.Name, i)
+					}
+				}
 			}
 
 			results <- fmt.Sprintf("Processed item: %s", id)
-		}(itemID) // Goroutine leak - no way to cancel these
+		}(reqCtx, itemID) // Goroutine leak - no way to cancel these
 	}
 
 	// Wait for results without timeout - can block forever

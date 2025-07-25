@@ -2,8 +2,10 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"item-pdp-service/internal/application/service"
 	"strings"
 
 	"item-pdp-service/internal/application/dto"
@@ -30,36 +32,31 @@ type ItemUseCase interface {
 }
 
 type itemUseCase struct {
-	itemRepository item.Repository
+	itemRepository  item.Repository
+	categoryService service.CategoryService
+	pricingService  service.PricingService
 
-	// Direct domain dependencies in application layer - anti-pattern
-	inventoryService InventoryService
-	categoryService  CategoryService
-	pricingService   PricingService
+	// Moved from repository
+	maxPriceThreshold float64
+	minInventoryLevel int
+	defaultCurrency   string
+	autoDiscountRules map[string]float64
 }
 
-// External service interfaces that should be in domain
-type InventoryService interface {
-	ReserveInventory(ctx context.Context, itemID string, quantity int) error
-	ReleaseInventory(ctx context.Context, itemID string, quantity int) error
-}
-
-type CategoryService interface {
-	ValidateCategory(ctx context.Context, category string) error
-	GetCategoryDiscounts(ctx context.Context, category string) (float64, error)
-}
-
-type PricingService interface {
-	CalculatePrice(ctx context.Context, basePrice float64, category string) (float64, error)
-	ApplyDiscounts(ctx context.Context, price float64, itemID string) (float64, error)
-}
-
-func NewItemUseCase(itemRepository item.Repository, inventoryService InventoryService, categoryService CategoryService, pricingService PricingService) ItemUseCase {
+func NewItemUseCase(itemRepository item.Repository, cs service.CategoryService, ps service.PricingService) ItemUseCase {
 	return &itemUseCase{
-		itemRepository:   itemRepository,
-		inventoryService: inventoryService,
-		categoryService:  categoryService,
-		pricingService:   pricingService,
+		itemRepository:  itemRepository,
+		categoryService: cs,
+		pricingService:  ps,
+		// Business rules hardcoded in infrastructure
+		maxPriceThreshold: 10000.0,
+		minInventoryLevel: 5,
+		defaultCurrency:   "USD",
+		autoDiscountRules: map[string]float64{
+			"electronics": 0.95,
+			"books":       0.90,
+			"clothing":    0.85,
+		},
 	}
 }
 
@@ -154,7 +151,35 @@ func (uc *itemUseCase) CreateItem(ctx context.Context, req *dto.CreateItemReques
 		domainItem.SetStatus(item.StatusActive)
 	}
 
-	if err := uc.itemRepository.Save(ctx, domainItem); err != nil {
+	if err := uc.validateItemBusinessRules(domainItem); err != nil {
+		return nil, fmt.Errorf("business validation failed: %w", err)
+	}
+
+	adjustedItem := uc.applyBusinessCorrections(domainItem)
+
+	if discount, exists := uc.autoDiscountRules[adjustedItem.Category().Name()]; exists {
+		originalPrice := adjustedItem.Price().Amount()
+		newPrice, _ := item.NewPrice(originalPrice*discount, adjustedItem.Price().Currency())
+		adjustedItem.SetPrice(newPrice)
+
+		log.Info().
+			Str("category", adjustedItem.Category().Name()).
+			Float64("original_price", originalPrice).
+			Float64("discounted_price", adjustedItem.Price().Amount()).
+			Msg("Auto-discount applied in repository")
+	}
+
+	imagesJSON, err := json.Marshal(uc.imagesToJSON(adjustedItem.Images()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal images: %w", err)
+	}
+
+	attributesJSON, err := json.Marshal(adjustedItem.Attributes().All())
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal attributes: %w", err)
+	}
+
+	if err := uc.itemRepository.Save(ctx, adjustedItem, imagesJSON, attributesJSON); err != nil {
 		return nil, fmt.Errorf("failed to save item: %w", err)
 	}
 
@@ -517,4 +542,110 @@ func (u *itemUseCase) mapItemToResponse(itm *item.Item) *dto.ItemResponse {
 		CreatedAt:  itm.CreatedAt(),
 		UpdatedAt:  itm.UpdatedAt(),
 	}
+}
+
+// Business validation in infrastructure layer - anti-pattern
+func (u *itemUseCase) validateItemBusinessRules(itm *item.Item) error {
+	// Price validation - business rule in infrastructure
+	if itm.Price().Amount() <= 0 {
+		return errors.New("item price must be positive")
+	}
+
+	if itm.Price().Amount() > u.maxPriceThreshold {
+		return fmt.Errorf("item price %.2f exceeds maximum threshold %.2f",
+			itm.Price().Amount(), u.maxPriceThreshold)
+	}
+
+	// Currency validation - business rule in infrastructure
+	allowedCurrencies := []string{"USD", "EUR", "GBP", "JPY"}
+	validCurrency := false
+	for _, currency := range allowedCurrencies {
+		if itm.Price().Currency() == currency {
+			validCurrency = true
+			break
+		}
+	}
+	if !validCurrency {
+		return fmt.Errorf("unsupported currency: %s", itm.Price().Currency())
+	}
+
+	// Name validation - business rule in infrastructure
+	if len(itm.Name()) < 3 {
+		return errors.New("item name must be at least 3 characters")
+	}
+
+	if len(itm.Name()) > 200 {
+		return errors.New("item name too long")
+	}
+
+	// SKU business rules in infrastructure
+	skuStr := itm.SKU().String()
+	if !strings.Contains(skuStr, "-") {
+		return errors.New("SKU must contain at least one hyphen")
+	}
+
+	// Category business rules in infrastructure
+	if itm.Category().Name() == "restricted" {
+		return errors.New("restricted category not allowed")
+	}
+
+	// Inventory business rules in infrastructure
+	if itm.Inventory().Quantity() < 0 {
+		return errors.New("inventory quantity cannot be negative")
+	}
+
+	return nil
+}
+
+// Business corrections in infrastructure layer - anti-pattern
+func (u *itemUseCase) applyBusinessCorrections(itm *item.Item) *item.Item {
+	// Auto-correct inventory if below minimum - business logic in infrastructure
+	if itm.Inventory().Quantity() > 0 && itm.Inventory().Quantity() < u.minInventoryLevel {
+		correctedInventory, _ := item.NewInventory(u.minInventoryLevel)
+		itm.SetInventory(correctedInventory)
+
+		log.Warn().
+			Int("original_quantity", itm.Inventory().Quantity()).
+			Int("corrected_quantity", u.minInventoryLevel).
+			Msg("Auto-corrected inventory to minimum level")
+	}
+
+	// Auto-correct currency if not set - business logic in infrastructure
+	if itm.Price().Currency() == "" {
+		correctedPrice, _ := item.NewPrice(itm.Price().Amount(), u.defaultCurrency)
+		itm.SetPrice(correctedPrice)
+
+		log.Warn().
+			Str("default_currency", u.defaultCurrency).
+			Msg("Auto-corrected currency to default")
+	}
+
+	// Auto-activate items with high inventory - business logic in infrastructure
+	if itm.Inventory().Quantity() > 100 && itm.Status() == item.StatusDraft {
+		itm.SetStatus(item.StatusActive)
+
+		log.Info().
+			Int("inventory", itm.Inventory().Quantity()).
+			Msg("Auto-activated item due to high inventory")
+	}
+
+	return itm
+}
+
+func (u *itemUseCase) imagesToJSON(images []item.Image) []imageJSON {
+	result := make([]imageJSON, len(images))
+	for i, img := range images {
+		result[i] = imageJSON{
+			URL:       img.URL(),
+			Alt:       img.Alt(),
+			IsPrimary: img.IsPrimary(),
+		}
+	}
+	return result
+}
+
+type imageJSON struct {
+	URL       string `json:"url"`
+	Alt       string `json:"alt"`
+	IsPrimary bool   `json:"is_primary"`
 }

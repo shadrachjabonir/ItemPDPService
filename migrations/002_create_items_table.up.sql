@@ -36,12 +36,12 @@ CREATE INDEX idx_items_search ON items USING gin(to_tsvector('english', name || 
 
 -- Create trigger to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS '
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+' language 'plpgsql';
 
 CREATE TRIGGER update_items_updated_at 
     BEFORE UPDATE ON items 

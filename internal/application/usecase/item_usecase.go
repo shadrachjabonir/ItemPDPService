@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"item-pdp-service/internal/application/service"
 	"strings"
 
 	"item-pdp-service/internal/application/dto"
@@ -30,36 +31,16 @@ type ItemUseCase interface {
 }
 
 type itemUseCase struct {
-	itemRepository item.Repository
-
-	// Direct domain dependencies in application layer - anti-pattern
-	inventoryService InventoryService
-	categoryService  CategoryService
-	pricingService   PricingService
+	itemRepository  item.Repository
+	categoryService service.CategoryService
+	pricingService  service.PricingService
 }
 
-// External service interfaces that should be in domain
-type InventoryService interface {
-	ReserveInventory(ctx context.Context, itemID string, quantity int) error
-	ReleaseInventory(ctx context.Context, itemID string, quantity int) error
-}
-
-type CategoryService interface {
-	ValidateCategory(ctx context.Context, category string) error
-	GetCategoryDiscounts(ctx context.Context, category string) (float64, error)
-}
-
-type PricingService interface {
-	CalculatePrice(ctx context.Context, basePrice float64, category string) (float64, error)
-	ApplyDiscounts(ctx context.Context, price float64, itemID string) (float64, error)
-}
-
-func NewItemUseCase(itemRepository item.Repository, inventoryService InventoryService, categoryService CategoryService, pricingService PricingService) ItemUseCase {
+func NewItemUseCase(itemRepository item.Repository, cs service.CategoryService, ps service.PricingService) ItemUseCase {
 	return &itemUseCase{
-		itemRepository:   itemRepository,
-		inventoryService: inventoryService,
-		categoryService:  categoryService,
-		pricingService:   pricingService,
+		itemRepository:  itemRepository,
+		categoryService: cs,
+		pricingService:  ps,
 	}
 }
 

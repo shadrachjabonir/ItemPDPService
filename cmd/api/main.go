@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"item-pdp-service/internal/application/service"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,13 +33,11 @@ func main() {
 			database.NewConnection,
 			persistence.NewPostgresItemRepository,
 			// Mock services for dependency injection (part of intentional flaws)
-			func() usecase.InventoryService {
+			func() service.InventoryService {
 				return &mockInventoryService{}
 			},
-			func() usecase.CategoryService {
-				return &mockCategoryService{}
-			},
-			func() usecase.PricingService {
+			func() service.CategoryService { return &mockCategoryService{} },
+			func() service.PricingService {
 				return &mockPricingService{}
 			},
 			usecase.NewItemUseCase,
